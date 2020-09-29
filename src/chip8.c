@@ -10,18 +10,37 @@
 #define rram(a) (ram[a])
 #define wram(a, v) (ram[a] = v)
 
-#define reg_offset1(opcode) (opcode & 0xF000 >> 12)
-#define reg_offset2(opcode) ((opcode & 0x0F00) >> 8)
-#define reg_offset3(opcode) ((opcode & 0x00F0) >> 4)
-#define reg_offset4(opcode) ((opcode & 0x000F))
+#define offset1(opcode) (opcode & 0xF000 >> 12)
+#define offset2(opcode) ((opcode & 0x0F00) >> 8)
+#define offset3(opcode) ((opcode & 0x00F0) >> 4)
+#define offset4(opcode) ((opcode & 0x000F))
 
+/* 
+ *  Lower 8 bits of the rFLAGS register, including sign flag (SF),
+ *  zero flag (ZF), auxiliary carryflag (AF), parity flag (PF),
+ *  and carry flag (CF).
+ *   
+ *   -> sign flag (SF)
+ *  |  -> zero flag (ZF)
+ *  | |  -> not used
+ *  | | |  -> Auxiliary Carry Flag(AF)
+ *  | | | |          
+ *  0 0 0 0 0 0 0 0
+ *          | | | |
+ *          | | | -> carry flag (CF)
+ *          | | -> not used
+ *          | -> Parity Flag (PF)
+ *          -> not used
+ * 
+*/
+extern uint8_t flags(void);
 
 //******************************************************************************
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
 //******************************************************************************
 
 // Handle opcodes starting with 0x0
-(*zeroop[]) (uint16_t opcode) =
+void (*zeroop[]) (uint16_t opcode) =
 {
     cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
@@ -29,7 +48,7 @@
 };
 
 // Handle opcodes starting with 0x8
-(*eightop[]) (uint16_t opcode) = 
+void (*eightop[]) (uint16_t opcode) = 
 {
     setvxtovy, vxorvy, vxandvy, vxxorvy, 
     vxaddvy, vxsubvy, lsb_vx_in_vf_r, 
@@ -37,7 +56,7 @@
 };
 
 // Handle opcodes starting with 0xE
-(*e_op) (uint16_t opcode) = 
+void (*e_op[]) (uint16_t opcode) = 
 {
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
@@ -45,16 +64,16 @@
 };
 
 // Handle opcodes starting with 0xF
-(*special) (uint16_t opcode) =
+void (*special[]) (uint16_t opcode) =
 {
-    set_dt, cpuNULL, set_BCD, cpuNULL, cpuNULL, 
+    cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
     reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
     vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx,
 
 };
 
 // Call other arrays of functions 
-(*generalop[16]) (uint16_t opcode) =
+void (*generalop[16]) (uint16_t opcode) =
 {
     msbis0, jump, call, se, sne, 
     sne, setvx, addvx, msbis8, next_if_vx_not_vy, 
@@ -146,7 +165,7 @@ void game_loop()
     for (; PC <= saddr; PC += 2) {
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
-        (*generalop[reg_offset1(opcode)]) (opcode);
+        (*generalop[offset1(opcode)]) (opcode);
         printf("%X\n", opcode);
 
     }
@@ -182,18 +201,61 @@ void load_game(FILE *filep)
 //*                     OPCODES FUNCTIONS DEFINITIONS                          *
 //******************************************************************************
 
+// fuctions for the general function pointers array
 
 void msbis0(uint16_t opcode)
 {
-    (*zeroop[(opcode & 0x000F) >> 12]) (opcode);
+    uint16_t index = offset4(opcode);
+    (*zeroop[index]) (opcode);
 }
 
 void msbis8(uint16_t opcode)
 {
-    uint16_t index = 
-    (*)
+    uint16_t index = offset4(opcode);
+    (*eightop[index]) (opcode);
 }
 
-void msbise(uint16_t opcode);
+void msbise(uint16_t opcode) 
+{
+    uint16_t index = offset3(opcode);
+    (*e_op[index]) (opcode);
+}
 
-void msbisf(uint16_t opcode);
+void msbisf(uint16_t opcode)
+{
+    uint16_t index = offset4(opcode);
+    if (index == 0x5) {
+        index = offset3(opcode);
+    }
+
+    (*special[index]) (opcode);
+
+}
+
+// data registers functions
+
+void setvx(uint16_t opcode) 
+{
+    // set register specified in msb - 4 bits to 
+    // the lsb
+    reg[offset2(opcode)] = opcode & 0x00ff;
+}
+
+void setvxtovy(uint16_t opcode)
+{
+    reg[offset2(opcode)] = reg[offset3(opcode)];
+}
+
+void addvx(uint16_t opcode)
+{   
+    reg[offset2(opcode)] += opcode & 0x00ff;
+}
+
+void vxaddvy(uint16_t opcode) 
+{
+    reg[offset3(opcode)] += reg[offset2(opcode)];
+    uint16_t flags = rflags();
+
+    reg[0xf] ;
+}
+

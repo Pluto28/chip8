@@ -144,9 +144,10 @@ void msbis0(uint16_t opcode);
 void msbis8(uint16_t opcode);
 
 // call other array of functions if the opcode msb is 0XE,
-// lsb of opcode is argument
+// 3rd offset of opcode is index
 void msbise(uint16_t opcode);
 
 // call other array of functions if the opcode msb is 0XF,
-// lsb of opcode is argument
+// 4th offset of opcode is index if the 4th offset is not 
+// 0X5, if it's 0X5 then the 3rd offset is the index
 void msbisf(uint16_t opcode);
