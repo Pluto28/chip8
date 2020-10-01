@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <sys/random.h>
 
 #include <chip8.h>
 #include <opcodes.h>
@@ -31,7 +32,6 @@
  *          | | -> not used
  *          | -> Parity Flag (PF)
  *          -> not used
- * 
 */
 extern uint8_t flags(void);
 
@@ -105,6 +105,17 @@ uint8_t fonts[] = {
 //*                      general processor functions                           *
 //******************************************************************************
 
+
+uint8_t randnum()
+{
+    ssize_t *buffer[1];
+    getrandom(*buffer[1], 1, 0x0);
+
+    // generates number
+    srandom(buffer[0]);
+    uint8_t number = random() % 255;
+    return number;
+}
 
 void cpuNULL(uint16_t opcode)
 {
@@ -254,8 +265,66 @@ void addvx(uint16_t opcode)
 void vxaddvy(uint16_t opcode) 
 {
     reg[offset3(opcode)] += reg[offset2(opcode)];
-    uint16_t flags = rflags();
+    uint8_t rflag = flags();
 
-    reg[0xf] ;
+    reg[0xf] = 0x10 & flags();
 }
 
+void vxsubvy(uint16_t opcode)
+{
+    reg[offset2(opcode)] -= reg[offset3(opcode)];
+
+    reg[0xf] = flags() & 0x10;
+}
+
+void vysubvx(uint16_t opcode)
+{
+    // register vx = vy - vx
+    reg[offset2(opcode)] = reg[offset3(opcode)] - reg[offset2(opcode)];
+
+    reg[0xf] = flags() & 0x10;
+}
+
+void vxorvy(uint16_t opcode)
+{
+    reg[offset2(opcode)] = reg[offset2(opcode)] | reg[offset3(opcode)];
+}
+
+void vxandvy(uint16_t opcode)
+{
+    reg[offset2(opcode)] = reg[offset2(opcode)] & reg[offset3(opcode)];
+}
+
+void vxxorvy(uint16_t opcode) 
+{
+    reg[offset2(opcode)] = reg[offset2(opcode)] ^ reg[offset3(opcode)];
+}
+
+void lsb_vx_in_vf_r(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] = reg[vy] >> 1;
+    reg[0xf] = reg[vx] & 0x1; 
+}
+
+// TODO: check if this opcode is implemented the right way
+void msbvxvf_svvxl1(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] = reg[vy] << 1;
+
+    reg[0xf] = (reg[vx] & 0x80) >> 8;
+}
+
+void vxandrand(uint16_t opcode)
+{
+    uint8_t mask = offset3(opcode) | offset4(opcode);
+
+    uint16_t rand_i = randnum();
+
+    
+}

@@ -1,15 +1,19 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/random.h>
 
 // get value of the rflags
 extern uint8_t flags(void);
 
 int main()
 {
-    uint8_t i = 240;
+    int i[1];
     uint8_t y = 200;
 
-    i = i + 2;
-    uint8_t data = (flags());
-    printf("%x %x", data, i);
+    getrandom(&i[0], 1, 0x0);
+    
+    srandom(i[0]);
+    long foda_se = rand();
+    printf("%x", i[0]);
 }

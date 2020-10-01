@@ -49,6 +49,10 @@ uint8_t ST;
 // size of file in bytes
 long file_size;
 
+//******************************************************************************
+//* General Functions                                                          *
+//******************************************************************************
+
 // initialize memory and registers and load game into memory
 void initialize();
 
@@ -57,5 +61,8 @@ void game_loop();
 
 // load game into ram
 void load_game(FILE *filep);
+
+// return random number between 0-255
+uint8_t randnum();
 
 #endif
