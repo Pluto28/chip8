@@ -19,7 +19,7 @@ void cpuNULL(uint16_t opcode);
 void cls(uint16_t opcode);
 
 // Return from subroutine. Set the PC to the address at the top of the stack 
-// and subtract 1 from the SP. 0x00EE
+// and subtract 1 from the SP. 00EE
 void ret(uint16_t opcode);
 
 // jumps to address NNN. 1NNN
@@ -82,7 +82,7 @@ void next_if_vx_not_vy(uint16_t opcode);
 void itoa(uint16_t opcode); 
 
 // Jumps to the address NNN plus V0. BNNN
-void jvaddv0(uint16_t opcode);
+void jmpaddv0(uint16_t opcode);
 
 // Sets VX to the result of a bitwise and operation on
 // a random number (Typically: 0 to 255) and NN. CXNN
@@ -105,7 +105,7 @@ void vx_to_key(uint16_t opcode);
 // Sets the delay timer to VX. FX15
 void set_dt(uint16_t opcode);
 
-// Sets the sound timer to VX. FX18
+// Set the sound timer to the value of register VX
 void set_st(uint16_t opcode);
 
 // Adds VX to I. VF is not affected. FX1E

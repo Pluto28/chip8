@@ -18,7 +18,7 @@
 
 /* 
  *  Lower 8 bits of the rFLAGS register, including sign flag (SF),
- *  zero flag (ZF), auxiliary carryflag (AF), parity flag (PF),
+ *  zero flag (ZF), auxiliary carry flag (AF), parity flag (PF),
  *  and carry flag (CF).
  *   
  *   -> sign flag (SF)
@@ -77,7 +77,7 @@ void (*generalop[16]) (uint16_t opcode) =
 {
     msbis0, jump, call, se, sne, 
     sne, setvx, addvx, msbis8, next_if_vx_not_vy, 
-    itoa, jvaddv0, vxandrand, cpuNULL, msbise, 
+    itoa, jmpaddv0, vxandrand, cpuNULL, msbise, 
     msbisf
 };
 
@@ -108,12 +108,13 @@ uint8_t fonts[] = {
 
 uint8_t randnum()
 {
-    ssize_t *buffer[1];
-    getrandom(*buffer[1], 1, 0x0);
+    ssize_t buffer[1];
+    getrandom(&buffer[1], 1, 0x0);
 
     // generates number
     srandom(buffer[0]);
     uint8_t number = random() % 255;
+
     return number;
 }
 
@@ -176,6 +177,7 @@ void game_loop()
     for (; PC <= saddr; PC += 2) {
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
+
         (*generalop[offset1(opcode)]) (opcode);
         printf("%X\n", opcode);
 
@@ -324,7 +326,122 @@ void vxandrand(uint16_t opcode)
 {
     uint8_t mask = offset3(opcode) | offset4(opcode);
 
-    uint16_t rand_i = randnum();
+    uint8_t rand_i = randnum();
 
-    
+    reg[offset1(opcode)] = mask & rand_i;
 }
+
+
+// Flow Control with Jumps
+
+void jump(uint16_t opcode)
+{
+    uint16_t addr = opcode & 0x0fff;
+    PC = addr;
+}
+
+// TODO: implement address checking
+void jmpaddv0(uint16_t opcode)
+{
+    uint16_t addr = (opcode & 0x0fff) + reg[0x0];
+
+    PC = addr;
+}
+
+// subroutines
+
+// TODO: check if it's storing right address at the stack
+void call(uint16_t opcode)
+{
+    // store actual address into stack to return to 
+    // it after
+    stack[SP] = PC;
+    SP++;
+
+    PC = 0x0FFF & opcode;
+}
+
+void ret(uint16_t opcode)
+{
+    PC = stack[SP--];
+}
+
+// TODO: implement the 0NNN instruction if needed
+
+// conditional branching using skips
+
+
+void se(uint16_t opcode)
+{   
+    // register index
+    uint8_t rx = offset2(opcode);
+
+    uint8_t nn = 0x00FF & opcode;
+
+    // skips next instruction if register rx is equal nn
+    if (reg[rx] == nn) {
+        PC += 2;
+    }
+}
+
+void svxevy(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+
+    if (reg[vx] == reg[vy]) 
+    {
+        PC += 2;
+    }
+}
+
+void sne(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+    uint8_t nn = opcode & 0x00FF;
+
+    if (vx != nn) 
+    {
+        PC += 2;
+    }
+}
+
+void next_if_vx_not_vy(uint16_t opcode)
+{ 
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    if (reg[vx] != reg[vy])
+    {
+        PC += 2;
+    }
+}
+
+// Timers
+
+void set_dt(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+
+    DT = reg[vx];
+}
+
+void vx_to_dt(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+
+    reg[vx] = DT;
+}
+
+void set_st(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+
+    ST = reg[vx];
+}
+
+// TODO: Keypad Input
+
+// TODO: Graphics
+
