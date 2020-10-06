@@ -443,5 +443,76 @@ void set_st(uint16_t opcode)
 
 // TODO: Keypad Input
 
-// TODO: Graphics
+
+void vx_to_key(uint16_t opcode)
+{
+
+}
+
+void skipifdown(uint16_t opcode) 
+{
+
+}
+
+void skipifnotdown(uint16_t opcode)
+{
+
+}
+
+
+// The I Register
+void itoa(uint16_t opcode)
+{
+    I = opcode & 0x0FFF;
+}
+
+void iaddvx(uint16_t opcode)
+{
+    uint8_t vx = offset2(opcode);
+
+    I += reg[vx];
+}
+
+// drawing sprites to the screen
+
+void draw(uint16_t opcode)
+{
+    // TODO: call function defined into graphics.c to draw pixels to screen
+
+
+}
+
+void cls(uint16_t opcode)
+{
+    // TODO: call function defined into graphics.c to clear screen
+}
+
+
+// drawing fonts
+
+void load_char_addr(uint16_t opcode)
+{
+
+}
+
+
+// Binary-Coded Decimal
+void set_BCD(uint16_t opcode)
+{
+    int i;
+
+    uint8_t digits[3];
+    uint8_t number = reg[offset2(opcode)]; 
+
+    // store separate digits into the digits array
+    for (i = 3; number > 0;)
+    {
+        digits[--i] = number % 10;
+        number /= 10;
+    }
+
+    // store digits into the ram address starting at I
+    uint8_t size = sizeof(digits) / sizeof(digits[0]);
+    memcpy(&ram[I], &digits, size);
+}
 

@@ -79,7 +79,7 @@ void msbvxvf_svvxl1(uint16_t opcode);
 void next_if_vx_not_vy(uint16_t opcode);
 
 // Sets I to the address NNN. ANNN
-void itoa(uint16_t opcode); 
+void itoa(uint16_t opcode);
 
 // Jumps to the address NNN plus V0. BNNN
 void jmpaddv0(uint16_t opcode);
@@ -88,7 +88,9 @@ void jmpaddv0(uint16_t opcode);
 // a random number (Typically: 0 to 255) and NN. CXNN
 void vxandrand(uint16_t opcode);
 
-// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N+1 pixels
+// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels
+// and a height of N+1 pixels
+void draw(uint16_t opcode);
 
 // Skips the next instruction if the key stored in VX is pressed. EX9E
 void skipifdown(uint16_t opcode);
@@ -105,7 +107,7 @@ void vx_to_key(uint16_t opcode);
 // Sets the delay timer to VX. FX15
 void set_dt(uint16_t opcode);
 
-// Set the sound timer to the value of register VX
+// Set the sound timer to the value of register VX. FX18
 void set_st(uint16_t opcode);
 
 // Adds VX to I. VF is not affected. FX1E
