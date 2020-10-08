@@ -11,7 +11,7 @@
 #define rram(a) (ram[a])
 #define wram(a, v) (ram[a] = v)
 
-#define offset1(opcode) (opcode & 0xF000 >> 12)
+#define offset1(opcode) ((opcode & 0xF000) >> 12)
 #define offset2(opcode) ((opcode & 0x0F00) >> 8)
 #define offset3(opcode) ((opcode & 0x00F0) >> 4)
 #define offset4(opcode) ((opcode & 0x000F))
@@ -68,7 +68,7 @@ void (*special[]) (uint16_t opcode) =
 {
     cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
     reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
-    vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx,
+    vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx, cpuNULL
 
 };
 
@@ -76,7 +76,7 @@ void (*special[]) (uint16_t opcode) =
 void (*generalop[16]) (uint16_t opcode) =
 {
     msbis0, jump, call, se, sne, 
-    sne, setvx, addvx, msbis8, next_if_vx_not_vy, 
+    svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
     itoa, jmpaddv0, vxandrand, cpuNULL, msbise, 
     msbisf
 };
@@ -120,7 +120,7 @@ uint8_t randnum()
 
 void cpuNULL(uint16_t opcode)
 {
-    fprintf(stderr, "[WARNING] Unknown opcode %X", opcode);
+    fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
 }
 
 int main(int argc, char *argv[])
@@ -178,9 +178,13 @@ void game_loop()
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
 
+        if (PC == 0X228)
+        {
+            break;
+        }
+        //printf("%#X %#X\n", opcode, PC);
         (*generalop[offset1(opcode)]) (opcode);
-        printf("%X\n", opcode);
-
+    
     }
 }
 
@@ -337,7 +341,11 @@ void vxandrand(uint16_t opcode)
 void jump(uint16_t opcode)
 {
     uint16_t addr = opcode & 0x0fff;
-    PC = addr;
+
+    // since we add +2 to the PC register at the game_loop, 
+    // this would jump the instruction at addr before it being executed, so
+    // we need to subtract 2 to conform to this behavior
+    PC = addr - 2;
 }
 
 // TODO: implement address checking
@@ -401,7 +409,7 @@ void sne(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t nn = opcode & 0x00FF;
 
-    if (vx != nn) 
+    if (reg[vx] != nn) 
     {
         PC += 2;
     }
@@ -446,17 +454,20 @@ void set_st(uint16_t opcode)
 
 void vx_to_key(uint16_t opcode)
 {
-
+    // TODO: IMPLEMENT
+    ;
 }
 
 void skipifdown(uint16_t opcode) 
 {
-
+    // TODO: implement
+    ;
 }
 
-void skipifnotdown(uint16_t opcode)
+void skipnotdown(uint16_t opcode)
 {
-
+    // TODO: implement
+    ;
 }
 
 
@@ -478,13 +489,14 @@ void iaddvx(uint16_t opcode)
 void draw(uint16_t opcode)
 {
     // TODO: call function defined into graphics.c to draw pixels to screen
-
+    ;
 
 }
 
 void cls(uint16_t opcode)
 {
     // TODO: call function defined into graphics.c to clear screen
+    ;
 }
 
 
@@ -492,11 +504,13 @@ void cls(uint16_t opcode)
 
 void load_char_addr(uint16_t opcode)
 {
-
+    // TODO: implement
+    ;
 }
 
 
 // Binary-Coded Decimal
+
 void set_BCD(uint16_t opcode)
 {
     int i;
@@ -514,5 +528,33 @@ void set_BCD(uint16_t opcode)
     // store digits into the ram address starting at I
     uint8_t size = sizeof(digits) / sizeof(digits[0]);
     memcpy(&ram[I], &digits, size);
+}
+
+// register values and memory storage
+
+void reg_dump(uint16_t opcode)
+{
+    //printf("%i", I);
+    uint8_t vx = offset2(opcode);
+    uint8_t index;
+
+    for (index = 0x0; index <= vx; ++index, ++I)
+    {
+        ram[I] = reg[index];
+    }
+    //printf("%i", I);
+}
+
+void reg_load(uint16_t opcode)
+{
+    //printf("%i", I);
+    uint8_t vx = offset2(opcode);
+    uint8_t index;
+
+    for (index = 0x0; index <= vx; ++index, ++I)
+    {
+        ram[I] = reg[index];
+    }
+    //printf("%i", I);
 }
 
