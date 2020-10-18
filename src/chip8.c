@@ -109,11 +109,11 @@ uint8_t fonts[] = {
 uint8_t randnum()
 {
     ssize_t buffer[1];
-    getrandom(&buffer[1], 1, 0x0);
+    getrandom(&buffer[0], 1, 0x0);
 
     // generates number
     srandom(buffer[0]);
-    uint8_t number = random() % 255;
+    uint8_t number = (random()) % 255;
 
     return number;
 }
@@ -178,13 +178,15 @@ void game_loop()
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
 
-        if (PC == 0X228)
+        if (PC == 0x2A0)
         {
+            //printf("%#X %#X\n", opcode, PC);
             break;
         }
-        //printf("%#X %#X\n", opcode, PC);
+        printf("%#X %#X\n", opcode, PC);
+        //printf("%#X\n", reg[0X6]);
         (*generalop[offset1(opcode)]) (opcode);
-    
+        
     }
 }
 
@@ -329,10 +331,10 @@ void msbvxvf_svvxl1(uint16_t opcode)
 void vxandrand(uint16_t opcode)
 {
     uint8_t mask = offset3(opcode) | offset4(opcode);
-
+    
     uint8_t rand_i = randnum();
 
-    reg[offset1(opcode)] = mask & rand_i;
+    reg[offset2(opcode)] = mask & 255;
 }
 
 
@@ -366,14 +368,14 @@ void call(uint16_t opcode)
     stack[SP] = PC;
     SP++;
 
-    PC = 0x0FFF & opcode;
+    PC = (0x0FFF & opcode) - 2;
 }
 
 void ret(uint16_t opcode)
 {
-    PC = stack[SP--];
+    //SP--;
+    PC = stack[--SP];
 }
-
 // TODO: implement the 0NNN instruction if needed
 
 // conditional branching using skips
@@ -534,7 +536,6 @@ void set_BCD(uint16_t opcode)
 
 void reg_dump(uint16_t opcode)
 {
-    //printf("%i", I);
     uint8_t vx = offset2(opcode);
     uint8_t index;
 
@@ -542,12 +543,10 @@ void reg_dump(uint16_t opcode)
     {
         ram[I] = reg[index];
     }
-    //printf("%i", I);
 }
 
 void reg_load(uint16_t opcode)
 {
-    //printf("%i", I);
     uint8_t vx = offset2(opcode);
     uint8_t index;
 
@@ -555,6 +554,5 @@ void reg_load(uint16_t opcode)
     {
         ram[I] = reg[index];
     }
-    //printf("%i", I);
 }
 
