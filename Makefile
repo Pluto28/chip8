@@ -14,7 +14,7 @@ LINKER_FLAGS = -lSDL2
 OBJS = funcs.s graphics.c chip8.c
 
 # OBJS_DIR is where the compiled object files will be stored
-OBJS_DIR = .
+OBJS_DIR = src
 
 # OBJ_NAME is used to specify the name of the the final executable
 OBJ_NAME = chip8
@@ -24,7 +24,7 @@ all : objs
 
 objs: $(OBJS)
 	$(CC) -c $(OBJS) $(LINKER_FLAGS)
-	mv -n *.o $(OBJS_DIR)/
+	mv *.o $(OBJS_DIR)/
 
 clean: 
 	rm $(OBJS_DIR)/*.o

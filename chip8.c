@@ -177,7 +177,6 @@ void game_loop()
     for (; PC <= saddr; PC += 2) {
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
-
         if (PC == 0x2A0)
         {
             //printf("%#X %#X\n", opcode, PC);
