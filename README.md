@@ -7,8 +7,8 @@ instructions to install SDL2 for your respective platform
 
 - Arch Linux:
 
-- Fedora
+- Fedora:
 
 To install SDL2 without using a package manager, you can follow the tutorial in
-their site by follow [this] {https://wiki.libsdl.org/Installation} link
+their site by follow [this](https://wiki.libsdl.org/Installation) link
     
