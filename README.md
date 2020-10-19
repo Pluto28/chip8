@@ -23,4 +23,4 @@ documentation
 ### Compile Project
 
 After you installed SDL2 you can compile the chip8 interpreter by runnign `make` 
-inside the chip8 folder
+inside the chip8 directory 
