@@ -138,6 +138,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    init_win(&argv[argc-1], GFX_WIDTH, GFX_HEIGHT);
+
     game_loop();
 }
 
@@ -159,9 +161,6 @@ void initialize()
     for (; address <= sizeof(fonts); address++) {
         wram(address, fonts[address]);
     }
-
-
-
 }
 
 void game_loop()
@@ -177,13 +176,8 @@ void game_loop()
     for (; PC <= saddr; PC += 2) {
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
-        if (PC == 0x2A0)
-        {
-            //printf("%#X %#X\n", opcode, PC);
-            break;
-        }
+        
         printf("%#X %#X\n", opcode, PC);
-        //printf("%#X\n", reg[0X6]);
         (*generalop[offset1(opcode)]) (opcode);
         
     }

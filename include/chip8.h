@@ -8,8 +8,8 @@
 #define MAX_RAM 0xFFF
 #define START_ADDRS 0X200
 
-#define GFX_WIDTH 64
-#define GFX_HEIGHT 32
+#define GFX_WIDTH 640
+#define GFX_HEIGHT 320
 #define GFX_SIZE GFX_WIDTH * GFX_HEIGHT
 
 #define FONTSET_ADDRESS 0x00
