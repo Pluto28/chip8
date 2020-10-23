@@ -48,6 +48,11 @@ enum KeyPressMappings
     KEY_NULL
 };
 
+
+// ******************************************************************************
+// *                                 rendering                                  *
+// ******************************************************************************
+
 // main sdl structures used by program
 SDL_Window *ScreenWindow;
 SDL_Surface *ScreenSurface;
@@ -85,6 +90,8 @@ void init_win(char *game_name[], int width, int height)
     }
 }
 
+
+
 void update_window(uint8_t *gfx[])
 {
     SDL_UpdateWindowSurface(ScreenWindow);
@@ -95,118 +102,124 @@ void update_window(uint8_t *gfx[])
 //*                     key input handling                                     *
 //******************************************************************************
 
-uint8_t wait_for_key()
+uint8_t event_loop()
 {
-    uint8_t key = KEY_NULL;
     SDL_Event event;
 
-    SDL_WaitEvent(&event);
-
-    // get key pressed and if it's not the null key break out of
-    // the loops
-    key = get_key(&event);
-    
-    return key;
-}
-
-void exit_win()
-{
-    SDL_DestroyWindow(ScreenWindow);
-    SDL_DestroyRenderer(ScreenRenderer);
-    exit(0);
-}
-
-uint8_t get_key(SDL_Event *event)
-{
-    uint8_t key = 16;
-    switch ( event->key.keysym.sym )
+    uint8_t key;
+    if ( SDL_PollEvent(&event) != 0 )
     {
-        case SDLK_1:
-            key = KEYMAP_ONE;
-            break;
-        case SDLK_2:
-            key = KEYMAP_TWO;
-            break;
-        case SDLK_3:
-            key = KEYMAP_THREE;
-            break;
-        case SDLK_4:
-            key = KEYMAP_FOUR;
-            break;
-        case SDLK_q:
-            key = KEYMAP_Q;
-            break;
-        case SDLK_w:
-            key = KEYMAP_W;
-            break;
-        case SDLK_e:
-            key = KEYMAP_E;
-            break;
-        case SDLK_r:
-            key = KEYMAP_R;
-            break;
-        case SDLK_a:
-            key = KEYMAP_A;
-            break;
-        case SDLK_s:
-            key = KEYMAP_S;
-            break;
-        case SDLK_d:
-            key = KEYMAP_D;
-            break;
-        case SDLK_f:
-            key = KEYMAP_TWO;
-            break;
-        case SDLK_z:
-            key = KEYMAP_F;
-            break;
-        case SDLK_x:
-            key = KEYMAP_X;
-            break;
-        case SDLK_c:
-            key = KEYMAP_C;
-            break;
-        case SDLK_v:
-            key = KEYMAP_V;
-            break;
-        default:
-            key = KEY_NULL;
-    }
-
-    return key;
-}
-
-void user_exit()
-{
-    // event handler
-    SDL_Event event;
-
-    while (SDL_PollEvent(&event))
-    {
-        if ( event.type ==  SDL_QUIT )
+        switch ( event.type )
         {
-            SDL_Quit();
-            exit_win();
+            case SDL_QUIT:
+            {
+                SDL_Quit();
+                exit( 0 );
+            }
+
+            case SDL_KEYDOWN: 
+            {
+                switch ( event.key.keysym.sym )
+                {
+                    case SDLK_1:
+                        key = KEYMAP_ONE;
+                        break;
+                    case SDLK_2:
+                        key = KEYMAP_TWO;
+                        break;
+                    case SDLK_3:
+                        key = KEYMAP_THREE;
+                        break;
+                    case SDLK_4:
+                        key = KEYMAP_FOUR;
+                        break;
+                    case SDLK_q:
+                        key = KEYMAP_Q;
+                        break;
+                    case SDLK_w:
+                        key = KEYMAP_W;
+                        break;
+                    case SDLK_e:
+                        key = KEYMAP_E;
+                        break;
+                    case SDLK_r:
+                        key = KEYMAP_R;
+                        break;
+                    case SDLK_a:
+                        key = KEYMAP_A;
+                        break;
+                    case SDLK_s:
+                        key = KEYMAP_S;
+                        break;
+                    case SDLK_d:
+                        key = KEYMAP_D;
+                        break;
+                    case SDLK_f:
+                        key = KEYMAP_TWO;
+                        break;
+                    case SDLK_z:
+                        key = KEYMAP_F;
+                        break;
+                    case SDLK_x:
+                        key = KEYMAP_X;
+                        break;
+                    case SDLK_c:
+                        key = KEYMAP_C;
+                        break;
+                    case SDLK_v:
+                        key = KEYMAP_V;
+                        break;
+                    default:
+                        key = KEYMAP_F;
+                }
+                break;
+            }
+            case SDL_KEYUP:
+                key = KEY_NULL;
+                break;
         }
     }
+    return key;
+}
+
+uint8_t wait_for_key()
+{
+    uint8_t eventkey = KEY_NULL;
+
+    // wait until the eventkey is different from KEY_NULL
+    while (1)
+    {
+        eventkey = event_loop();
+
+        if (eventkey != KEY_NULL)
+        {
+            break;
+        }
+    }
+
+    return eventkey;
 }
 
 uint8_t iskeydown(uint8_t key)
 {
-    SDL_Event event;
-    SDL_PollEvent(&event);
+    // event key that's is being pressed
+    uint8_t eventkey = event_loop();
+    uint8_t wait_loops = 0;
 
-    // this is the actual pressed key, not confuse with the key passed as
-    // argument 
-    uint8_t pressed_key = get_key(&event);
-    
-    // 0 if key is not pressed and 1 if it's, that's the value returned
-    uint8_t is_pressed = 0;
-
-    if (event.key.state == SDL_PRESSED && pressed_key == key)
+    while (eventkey == 16 && wait_loops != 0)
     {
-        is_pressed = 1;
+        eventkey = event_loop();
+        ++wait_loops;
     }
-    printf("%i\n", pressed_key);
-    return is_pressed;
+    
+
+    uint8_t isdown = 0;
+
+    if (eventkey == key && eventkey != 16)
+    {
+        isdown = 1;
+    }
+
+    return isdown;
 }
+

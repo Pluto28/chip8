@@ -178,15 +178,15 @@ void game_loop()
 
     for (; PC <= saddr; PC += 2, ++ex_ins) 
     {
-        user_exit();
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
+        printf("%x %x\n", PC, opcode);
+        
         (*generalop[offset1(opcode)]) (opcode);
 
-        reg[0x2] = 2;
-        //printf("%x\n", PC);
-        skipifdown(0x0200);
-        //printf("%x\n", PC);
+        event_loop();
+        //skipifdown(0x0200);
+        //printf("%i\n", iskeydown(reg[0x2]));
 
     }
     printf("Executed %i instructions");
@@ -467,11 +467,11 @@ void skipifdown(uint16_t opcode)
 {
     uint8_t vx = offset2(opcode);
     uint8_t is_pressed = iskeydown(reg[vx]);
-    
+    printf("key %i is %i\n a", reg[vx], iskeydown(reg[vx]));
 
     if (is_pressed) 
     {
-        //printf("key %i is %i\n a", reg[vx], is_pressed);
+        printf("key %i is %i\n a", reg[vx], is_pressed);
         PC += 2;
     }
 }
@@ -480,6 +480,7 @@ void skipnotdown(uint16_t opcode)
 {
     uint8_t vx = offset2(opcode);
     uint8_t is_pressed = iskeydown(reg[vx]);
+    printf("%x\n", vx);
 
     if (!is_pressed) 
     {
