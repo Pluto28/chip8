@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/random.h>
+#include <unistd.h>
 
 #include <chip8.h>
 #include <opcodes.h>
@@ -120,7 +121,7 @@ uint8_t randnum()
 
 void cpuNULL(uint16_t opcode)
 {
-    fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
+    //fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
 }
 
 int main(int argc, char *argv[])
@@ -172,15 +173,23 @@ void game_loop()
 
     // store the opcode to be executed
     uint16_t opcode;
+    uint16_t ex_ins = 0;
+    uint8_t event;
 
-    for (; PC <= saddr; PC += 2) {
+    for (; PC <= saddr; PC += 2, ++ex_ins) 
+    {
+        user_exit();
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
-        
-        printf("%#X %#X\n", opcode, PC);
         (*generalop[offset1(opcode)]) (opcode);
-        
+
+        reg[0x2] = 2;
+        //printf("%x\n", PC);
+        skipifdown(0x0200);
+        //printf("%x\n", PC);
+
     }
+    printf("Executed %i instructions");
 }
 
 
@@ -260,7 +269,7 @@ void setvxtovy(uint16_t opcode)
 
 void addvx(uint16_t opcode)
 {   
-    reg[offset2(opcode)] += opcode & 0x00ff;
+    reg[offset2(opcode)] += (opcode & 0x00ff);
 }
 
 void vxaddvy(uint16_t opcode) 
@@ -449,20 +458,34 @@ void set_st(uint16_t opcode)
 
 void vx_to_key(uint16_t opcode)
 {
-    // TODO: IMPLEMENT
-    ;
+    uint8_t vx = offset3(opcode);
+
+    reg[vx] = wait_for_key();
 }
 
 void skipifdown(uint16_t opcode) 
 {
-    // TODO: implement
-    ;
+    uint8_t vx = offset2(opcode);
+    uint8_t is_pressed = iskeydown(reg[vx]);
+    
+
+    if (is_pressed) 
+    {
+        //printf("key %i is %i\n a", reg[vx], is_pressed);
+        PC += 2;
+    }
 }
 
 void skipnotdown(uint16_t opcode)
 {
-    // TODO: implement
-    ;
+    uint8_t vx = offset2(opcode);
+    uint8_t is_pressed = iskeydown(reg[vx]);
+
+    if (!is_pressed) 
+    {
+        //printf("key %i is %i\n", reg[vx], is_pressed);
+        PC += 2;
+    }
 }
 
 

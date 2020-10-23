@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include <graphics.h>
 
@@ -43,7 +44,8 @@ enum KeyPressMappings
     KEYMAP_FOUR,
     KEYMAP_R,
     KEYMAP_F,
-    KEYMAP_V
+    KEYMAP_V,
+    KEY_NULL
 };
 
 // main sdl structures used by program
@@ -63,10 +65,23 @@ void init_win(char *game_name[], int width, int height)
     else
     {
         ScreenWindow = SDL_CreateWindow(*game_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,\
-        width, height, SDL_WINDOW_INPUT_GRABBED);
+        width, height, 0);
+        if (ScreenWindow == NULL)
+        {
+            fprintf(stderr, "Could not create window: %s", SDL_GetError());
+        }
 
         ScreenSurface = SDL_GetWindowSurface(ScreenWindow);
+        if (ScreenSurface == NULL)
+        {
+            fprintf(stderr, "Could not create window: %s", SDL_GetError());
+        }
 
+        ScreenRenderer = SDL_CreateSoftwareRenderer(ScreenSurface);
+        if (ScreenSurface == NULL)
+        {
+            fprintf(stderr, "Could not create window: %s", SDL_GetError());
+        }
     }
 }
 
@@ -75,62 +90,23 @@ void update_window(uint8_t *gfx[])
     SDL_UpdateWindowSurface(ScreenWindow);
 }
 
+
+//******************************************************************************
+//*                     key input handling                                     *
+//******************************************************************************
+
 uint8_t wait_for_key()
 {
-    uint8_t key = 0;
-
-    // exit loop when true
-    uint8_t brk = false;
-
-    // event handler
+    uint8_t key = KEY_NULL;
     SDL_Event event;
 
-    while (!brk)
-    {
-        while( SDL_PollEvent( &event ) != 0 )
-        {
-            if ( event.type ==  SDL_QUIT )
-            {
-                exit_win(0);
-            }
+    SDL_WaitEvent(&event);
 
-            switch ( event.key.keysym.sym )
-            {
-                case SDLK_1:
-                    key = KEYMAP_ONE;
-                case SDLK_2:
-                    key = KEYMAP_TWO;
-                case SDLK_3:
-                    key = KEYMAP_THREE;
-                case SDLK_4:
-                    key = KEYMAP_FOUR;
-                case SDLK_q:
-                    key = KEYMAP_Q;
-                case SDLK_w:
-                    key = KEYMAP_W;
-                case SDLK_e:
-                    key = KEYMAP_E;
-                case SDLK_r:
-                    key = KEYMAP_R;
-                case SDLK_a:
-                    key = KEYMAP_A;
-                case SDLK_s:
-                    key = KEYMAP_S;
-                case SDLK_d:
-                    key = KEYMAP_D;
-                case SDLK_f:
-                    key = KEYMAP_TWO;
-                case SDLK_z:
-                    key = KEYMAP_F;
-                case SDLK_x:
-                    key = KEYMAP_X;
-                case SDLK_c:
-                    key = KEYMAP_C;
-                case SDLK_v:
-                    key = KEYMAP_V;
-            }
-        }
-    }
+    // get key pressed and if it's not the null key break out of
+    // the loops
+    key = get_key(&event);
+    
+    return key;
 }
 
 void exit_win()
@@ -138,4 +114,99 @@ void exit_win()
     SDL_DestroyWindow(ScreenWindow);
     SDL_DestroyRenderer(ScreenRenderer);
     exit(0);
+}
+
+uint8_t get_key(SDL_Event *event)
+{
+    uint8_t key = 16;
+    switch ( event->key.keysym.sym )
+    {
+        case SDLK_1:
+            key = KEYMAP_ONE;
+            break;
+        case SDLK_2:
+            key = KEYMAP_TWO;
+            break;
+        case SDLK_3:
+            key = KEYMAP_THREE;
+            break;
+        case SDLK_4:
+            key = KEYMAP_FOUR;
+            break;
+        case SDLK_q:
+            key = KEYMAP_Q;
+            break;
+        case SDLK_w:
+            key = KEYMAP_W;
+            break;
+        case SDLK_e:
+            key = KEYMAP_E;
+            break;
+        case SDLK_r:
+            key = KEYMAP_R;
+            break;
+        case SDLK_a:
+            key = KEYMAP_A;
+            break;
+        case SDLK_s:
+            key = KEYMAP_S;
+            break;
+        case SDLK_d:
+            key = KEYMAP_D;
+            break;
+        case SDLK_f:
+            key = KEYMAP_TWO;
+            break;
+        case SDLK_z:
+            key = KEYMAP_F;
+            break;
+        case SDLK_x:
+            key = KEYMAP_X;
+            break;
+        case SDLK_c:
+            key = KEYMAP_C;
+            break;
+        case SDLK_v:
+            key = KEYMAP_V;
+            break;
+        default:
+            key = KEY_NULL;
+    }
+
+    return key;
+}
+
+void user_exit()
+{
+    // event handler
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event))
+    {
+        if ( event.type ==  SDL_QUIT )
+        {
+            SDL_Quit();
+            exit_win();
+        }
+    }
+}
+
+uint8_t iskeydown(uint8_t key)
+{
+    SDL_Event event;
+    SDL_PollEvent(&event);
+
+    // this is the actual pressed key, not confuse with the key passed as
+    // argument 
+    uint8_t pressed_key = get_key(&event);
+    
+    // 0 if key is not pressed and 1 if it's, that's the value returned
+    uint8_t is_pressed = 0;
+
+    if (event.key.state == SDL_PRESSED && pressed_key == key)
+    {
+        is_pressed = 1;
+    }
+    printf("%i\n", pressed_key);
+    return is_pressed;
 }
