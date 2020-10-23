@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* 
  * Graphics functions that don't need opcodes to be executed
  * */
@@ -223,3 +224,5 @@ uint8_t iskeydown(uint8_t key)
     return isdown;
 }
 
+=======
+>>>>>>> master
