@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 #include <stdint.h>
 #include <SDL2/SDL.h>
 
@@ -22,5 +22,3 @@ uint8_t iskeydown(uint8_t key);
 // handle events and return the pressed key, key is KEY_NULL(16) if 
 // there are no down keys
 uint8_t event_loop();
-=======
->>>>>>> master
