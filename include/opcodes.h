@@ -88,8 +88,9 @@ void jmpaddv0(uint16_t opcode);
 // a random number (Typically: 0 to 255) and NN. CXNN
 void vxandrand(uint16_t opcode);
 
-// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels
-// and a height of N+1 pixels
+// Draw a sprite at position VX, VY with N bytes of sprite data starting 
+// at the address stored in I Set VF to 01 if any set pixels are changed
+// to unset, and 00 otherwise
 void draw(uint16_t opcode);
 
 // Skips the next instruction if the key stored in VX is pressed. EX9E

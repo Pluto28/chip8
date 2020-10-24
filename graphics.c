@@ -91,9 +91,44 @@ void init_win(char *game_name[], int width, int height)
 }
 
 
-
-void update_window(uint8_t *gfx[])
+void render(uint8_t data, uint16_t x, uint16_t y)
 {
+    // index of bit to render to screen in the data array of bits
+    uint8_t bit_in;
+
+    // value of bit to render, can be 0 or 1
+    uint8_t bit;
+    
+    // size of data
+    uint8_t data_size = sizeof(data) * 8;
+
+    for (bit_in = 8 - 1; bit_in != (uint8_t) 0; x++, bit_in--)
+    {
+        bit = (data >> bit_in) & 0x01;
+
+        // choose the color to render based on the value of bit to be rendered
+        // If bit is 0, then the hexadecimal color is #002b36 and if bit is
+        // 1, the hexadecimal color is #657b83
+        if (bit)
+        {
+            SDL_SetRenderDrawColor(ScreenRenderer, 0, 0, 0, 0);
+        }
+        else   
+        {
+            SDL_SetRenderDrawColor(ScreenRenderer, 255, 255, 255, 0);
+        }
+        printf("%u", bit);
+        SDL_RenderDrawPoint(ScreenRenderer, x, y);
+    }
+    putchar('\n');
+    SDL_UpdateWindowSurface(ScreenWindow);
+}
+
+
+void clean_screen()
+{   
+    SDL_SetRenderDrawColor(ScreenRenderer, 255, 255, 255, 1);
+    SDL_RenderClear(ScreenRenderer);
     SDL_UpdateWindowSurface(ScreenWindow);
 }
 

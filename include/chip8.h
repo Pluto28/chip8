@@ -8,14 +8,14 @@
 #define MAX_RAM 0xFFF
 #define START_ADDRS 0X200
 
-#define GFX_WIDTH 1080
-#define GFX_HEIGHT 640
+#define WIN_WIDTH 640
+#define WIN_HEIGHT 320
 #define GFX_SIZE GFX_WIDTH * GFX_HEIGHT
 
 #define FONTSET_ADDRESS 0x00
 #define FONTSET_BYTES_PER_CHAR 5
 
-uint8_t gfx[GFX_HEIGHT][GFX_WIDTH];
+uint8_t window[WIN_HEIGHT][WIN_WIDTH];
 
 
 //******************************************************************************

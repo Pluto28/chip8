@@ -9,8 +9,8 @@
 #include <opcodes.h>
 #include <graphics.h>
 
-#define rram(a) (ram[a])
-#define wram(a, v) (ram[a] = v)
+#define rram(addr) (ram[addr])
+#define wram(addr, val) (ram[addr] = val)
 
 #define offset1(opcode) ((opcode & 0xF000) >> 12)
 #define offset2(opcode) ((opcode & 0x0F00) >> 8)
@@ -78,7 +78,7 @@ void (*generalop[16]) (uint16_t opcode) =
 {
     msbis0, jump, call, se, sne, 
     svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
-    itoa, jmpaddv0, vxandrand, cpuNULL, msbise, 
+    itoa, jmpaddv0, vxandrand, draw, msbise, 
     msbisf
 };
 
@@ -121,7 +121,7 @@ uint8_t randnum()
 
 void cpuNULL(uint16_t opcode)
 {
-    //fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
+    fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
 }
 
 int main(int argc, char *argv[])
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    init_win(&argv[argc-1], GFX_WIDTH, GFX_HEIGHT);
+    init_win(&argv[argc-1], WIN_WIDTH, WIN_HEIGHT);
 
     game_loop();
 }
@@ -152,16 +152,18 @@ void initialize()
     I = 0;
 
     // clear
-    memset(&gfx, 0, sizeof(gfx));
+    int i;
+    for (i = 0; i <= WIN_HEIGHT; ++i)
+    {
+        memset(window[i], 0, WIN_HEIGHT);
+        
+    }
     memset(&stack, 0, sizeof(stack) / sizeof(stack[0]));
     memset(&reg, 0, sizeof(reg));
     memset(&ram, 0, sizeof(ram));
     
     // load fontset
-    int address = FONTSET_ADDRESS;
-    for (; address <= sizeof(fonts); address++) {
-        wram(address, fonts[address]);
-    }
+    strcpy(ram, fonts);
 }
 
 void game_loop()
@@ -174,9 +176,9 @@ void game_loop()
     // store the opcode to be executed
     uint16_t opcode;
     uint16_t ex_ins = 0;
-    uint8_t event;
 
-    for (; PC <= saddr; PC += 2, ++ex_ins) 
+    clean_screen();
+    for (; PC <= saddr; PC += 2) 
     {
         // xor 2 subsequent memory locations to get a 2 bytes opcode
         opcode = (rram(PC) << 8) | (rram(PC+1));
@@ -184,12 +186,10 @@ void game_loop()
         
         (*generalop[offset1(opcode)]) (opcode);
 
+        //clean_screen();
         event_loop();
-        //skipifdown(0x0200);
-        //printf("%i\n", iskeydown(reg[0x2]));
 
     }
-    printf("Executed %i instructions");
 }
 
 
@@ -507,15 +507,31 @@ void iaddvx(uint16_t opcode)
 
 void draw(uint16_t opcode)
 {
-    // TODO: call function defined into graphics.c to draw pixels to screen
-    ;
+    // where to draw and how many bytes
+    uint16_t x = offset2(opcode);
+    uint16_t y = offset3(opcode);
+    uint16_t n = offset4(opcode);
 
+    // address of the data to draw in memory, we need it because we souldn't
+    // arbitrarily increment I
+    uint16_t data_addr = I;
+
+    // keep track of how much bytes were drawn
+    uint16_t ni;
+
+    for(ni = 0; ni <= n ; ++ni, ++data_addr)
+    {
+        uint8_t value = rram(data_addr);
+        printf("%x\n", value);
+        render(value, x, y);
+    }    
+    exit(0 );
 }
 
 void cls(uint16_t opcode)
 {
-    // TODO: call function defined into graphics.c to clear screen
-    ;
+    
+    clean_screen();
 }
 
 
@@ -523,8 +539,12 @@ void cls(uint16_t opcode)
 
 void load_char_addr(uint16_t opcode)
 {
-    // TODO: implement
-    ;
+    // this is the hexadecimal character
+    uint8_t hex = reg[offset2(opcode)];
+
+    // set I to the starting address of the data that composes the
+    // hexadecimal digit in memory
+    I = hex * 5;
 }
 
 
