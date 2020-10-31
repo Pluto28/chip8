@@ -8,7 +8,7 @@ flags:
         pushq   %rbp
         nop
         lahf
-        sar     $8, %rax
-        movq    %rax,%rbp
+        sar     $8, %eax
+        mov     %eax,%ebp
         popq    %rbp
         ret

@@ -9,6 +9,7 @@
 #include <opcodes.h>
 #include <graphics.h>
 
+
 #define rram(addr) (ram[addr])
 #define wram(addr, val) (ram[addr] = val)
 
@@ -16,6 +17,7 @@
 #define offset2(opcode) ((opcode & 0x0F00) >> 8)
 #define offset3(opcode) ((opcode & 0x00F0) >> 4)
 #define offset4(opcode) ((opcode & 0x000F))
+
 
 /* 
  *  Lower 8 bits of the rFLAGS register, including sign flag (SF),
@@ -53,7 +55,9 @@ void (*eightop[]) (uint16_t opcode) =
 {
     setvxtovy, vxorvy, vxandvy, vxxorvy, 
     vxaddvy, vxsubvy, lsb_vx_in_vf_r, 
-    vysubvx, msbvxvf_svvxl1
+    vysubvx, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, 
+    svflsl
 };
 
 // Handle opcodes starting with 0xE
@@ -107,6 +111,48 @@ uint8_t fonts[80] = {
 //******************************************************************************
 
 
+
+int main(int argc, char *argv[])
+{
+    long game_size;
+    // initialize interpreter and load game into memory
+    if (argc == 2)
+    {
+        initialize();
+
+        FILE *filep = fopen(argv[argc-1], "rb");
+        game_size = load_game(filep);
+
+        init_win(&argv[argc-1],  GFX_ROWS * 10, GFX_COLUMNS * 10);
+
+
+    }
+    else 
+    {
+        fprintf(stderr, "usage: ./chip8 <game>\n");
+        exit(1);
+    }
+
+    //PC = START_ADDRS;
+    for (;PC <= (game_size + 0x200);)
+    {
+        set_keys(keys);
+
+        for (int keyi = 0; keyi < 16; ++keyi)
+        {
+            //printf("%i ", keys[keyi]);
+        }
+        //putchar('\n');
+        cycle();
+        if (draw_flag)
+        {
+            update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
+
+            draw_flag = 0;
+        }
+    }
+}
+
 uint8_t randnum()
 {
     ssize_t buffer[1];
@@ -124,76 +170,66 @@ void cpuNULL(uint16_t opcode)
     fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
 }
 
-int main(int argc, char *argv[])
+void debug()
 {
-    // initialize interpreter and load game into memory
-    if (argc == 2)
+    ;
+}
+
+void cycle()
+{
+
+    // store the opcode to be executed
+    uint16_t opcode;
+    // xor 2 subsequent memory locations to get a 2 bytes opcode
+    opcode = (rram(PC) << 8) | rram(PC+1);
+    (*generalop[offset1(opcode)]) (opcode);
+
+    PC += 2;
+    
+    if (DT) 
     {
-        FILE *filep = fopen(argv[argc-1], "rb");
-        initialize ();
-        load_game(filep);
+        --DT;
+    }
+
+    if (ST)
+    {
+        --ST;
     }
     else 
     {
-        fprintf(stderr, "usage: ./chip8 <game>\n");
-        exit(1);
+        printf("Beep!\n");
+        ST = 60;
     }
-
-    init_win(&argv[argc-1], WIN_WIDTH, WIN_HEIGHT);
-
-    game_loop();
+    
+    SDL_Delay( 5 );
 }
+
 
 void initialize()
 {
 
-    PC = START_ADDRS;
-    SP = 0;
-    I = 0;
-
+    clean_screen();
     // clear
-    int i;
-    for (i = 0; i <= WIN_HEIGHT; ++i)
+    for (int i = 0; i < GFX_COLUMNS; ++i)
     {
-        memset(window[i], 0, WIN_HEIGHT);
+        memset(gfx[i], 0, GFX_ROWS - 1);
         
     }
     memset(&stack, 0, sizeof(stack) / sizeof(stack[0]));
     memset(&reg, 0, sizeof(reg));
     memset(&ram, 0, sizeof(ram));
-    
     // load fontset
     strcpy(ram, fonts);
+
+    SP = 0;
+    I = 0;
+    ST = 60; 
+    draw_flag = 0;
+    PC = START_ADDRS;
+
 }
 
-void game_loop()
-{
-    // store the file_size in a variable so we just read loaded memory
-    // sectors, we normalize the file_size to comply to the starting address
-    // of the ram
-    long saddr = file_size + 0x200;
-
-    // store the opcode to be executed
-    uint16_t opcode;
-    uint16_t ex_ins = 0;
-
-    clean_screen();
-    for (; PC <= saddr; PC += 2) 
-    {
-        // xor 2 subsequent memory locations to get a 2 bytes opcode
-        opcode = (rram(PC) << 8) | (rram(PC+1));
-        printf("%x %x\n", PC, opcode);
-        
-        (*generalop[offset1(opcode)]) (opcode);
-
-        //clean_screen();
-        event_loop();
-
-    }
-}
-
-
-void load_game(FILE *filep)
+long load_game(FILE *filep)
 {
 
     // check for errors 
@@ -203,18 +239,19 @@ void load_game(FILE *filep)
         exit(stream_status);
     }
 
-    // finds size of file 
-    int end_stream = fseek(filep, 1, SEEK_END);
+    long file_size;
+    fseek(filep, 1, SEEK_END);
     file_size = ftell(filep);
-
-    // set position indicator to start of file
     rewind(filep);
 
+
     // load ram with file contents
-    fread(&ram[START_ADDRS], 1, file_size, filep);
+    fread(&ram[START_ADDRS], 1, sizeof(ram), filep);
 
     fclose(filep);
     fprintf(stdout, "[OK] successfully loaded file into memory\n");
+
+    return file_size;
 }
 
 
@@ -226,8 +263,15 @@ void load_game(FILE *filep)
 
 void msbis0(uint16_t opcode)
 {
-    uint16_t index = offset4(opcode);
-    (*zeroop[index]) (opcode);
+    if (opcode)
+    {
+        uint16_t index = offset4(opcode);
+        (*zeroop[index]) (opcode);
+    }
+    else 
+    {
+        //printf("a\n");
+    }
 }
 
 void msbis8(uint16_t opcode)
@@ -259,25 +303,36 @@ void setvx(uint16_t opcode)
 {
     // set register specified in msb - 4 bits to 
     // the lsb
-    reg[offset2(opcode)] = opcode & 0x00ff;
+    uint8_t vx = offset2(opcode);
+
+    reg[vx] = opcode & 0x00ff;
 }
 
 void setvxtovy(uint16_t opcode)
 {
-    reg[offset2(opcode)] = reg[offset3(opcode)];
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] = reg[vy];
 }
 
 void addvx(uint16_t opcode)
 {   
-    reg[offset2(opcode)] += (opcode & 0x00ff);
+    uint8_t vx = offset2(opcode);
+    uint8_t nn = opcode & 0x00ff;
+
+    reg[vx] += nn;
 }
 
 void vxaddvy(uint16_t opcode) 
 {
-    reg[offset3(opcode)] += reg[offset2(opcode)];
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] = reg[vx] + reg[vy];
     uint8_t rflag = flags();
 
-    reg[0xf] = 0x10 & flags();
+    reg[0xf] = 0x10 & rflag;
 }
 
 void vxsubvy(uint16_t opcode)
@@ -288,26 +343,39 @@ void vxsubvy(uint16_t opcode)
 }
 
 void vysubvx(uint16_t opcode)
-{
+{  
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+
     // register vx = vy - vx
-    reg[offset2(opcode)] = reg[offset3(opcode)] - reg[offset2(opcode)];
+    reg[vx] -= reg[vy];
 
     reg[0xf] = flags() & 0x10;
 }
 
 void vxorvy(uint16_t opcode)
 {
-    reg[offset2(opcode)] = reg[offset2(opcode)] | reg[offset3(opcode)];
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] |= reg[vy];
 }
 
 void vxandvy(uint16_t opcode)
 {
-    reg[offset2(opcode)] = reg[offset2(opcode)] & reg[offset3(opcode)];
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] &= reg[vy];
 }
 
 void vxxorvy(uint16_t opcode) 
 {
-    reg[offset2(opcode)] = reg[offset2(opcode)] ^ reg[offset3(opcode)];
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
+
+    reg[vx] ^= reg[vy];
 }
 
 void lsb_vx_in_vf_r(uint16_t opcode)
@@ -316,27 +384,29 @@ void lsb_vx_in_vf_r(uint16_t opcode)
     uint8_t vy = offset3(opcode);
 
     reg[vx] = reg[vy] >> 1;
-    reg[0xf] = reg[vx] & 0x1; 
+    reg[0xf] = reg[vy] & 0x01; 
 }
 
-// TODO: check if this opcode is implemented the right way
-void msbvxvf_svvxl1(uint16_t opcode)
+void svflsl(uint16_t opcode)
 {
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    reg[vx] = reg[vy] << 1;
+    // shift vy by one bit and store the shifted value in vx
+    reg[vx] = reg[vy] >> 1;
 
-    reg[0xf] = (reg[vx] & 0x80) >> 8;
+    // store msb of vx in vf
+    reg[0xf] = (reg[vy] & 0x80) >> 7;
 }
 
 void vxandrand(uint16_t opcode)
 {
-    uint8_t mask = offset3(opcode) | offset4(opcode);
-    
-    uint8_t rand_i = randnum();
+    uint8_t vx = offset2(opcode);    // register index
 
-    reg[offset2(opcode)] = mask & 255;
+    uint8_t mask = opcode & 0x00ff;  // mask value
+    uint8_t rand = randnum();        // random number
+
+    reg[vx] = mask & rand;
 }
 
 
@@ -344,6 +414,7 @@ void vxandrand(uint16_t opcode)
 
 void jump(uint16_t opcode)
 {
+
     uint16_t addr = opcode & 0x0fff;
 
     // since we add +2 to the PC register at the game_loop, 
@@ -352,17 +423,17 @@ void jump(uint16_t opcode)
     PC = addr - 2;
 }
 
-// TODO: implement address checking
 void jmpaddv0(uint16_t opcode)
 {
-    uint16_t addr = (opcode & 0x0fff) + reg[0x0];
+    uint16_t nnn = opcode & 0x0fff;
 
-    PC = addr;
+    uint16_t addr = nnn + reg[0x0];
+
+    PC = addr - 2;
 }
 
 // subroutines
 
-// TODO: check if it's storing right address at the stack
 void call(uint16_t opcode)
 {
     // store actual address into stack to return to 
@@ -375,6 +446,7 @@ void call(uint16_t opcode)
 
 void ret(uint16_t opcode)
 {
+
     //SP--;
     PC = stack[--SP];
 }
@@ -385,13 +457,12 @@ void ret(uint16_t opcode)
 
 void se(uint16_t opcode)
 {   
-    // register index
-    uint8_t rx = offset2(opcode);
+    uint8_t vx = offset2(opcode);
 
     uint8_t nn = 0x00FF & opcode;
 
-    // skips next instruction if register rx is equal nn
-    if (reg[rx] == nn) {
+    // skips next instruction if register vx is equal nn
+    if (reg[vx] == nn) {
         PC += 2;
     }
 }
@@ -458,33 +529,31 @@ void set_st(uint16_t opcode)
 
 void vx_to_key(uint16_t opcode)
 {
-    uint8_t vx = offset3(opcode);
+    uint8_t vx = offset2(opcode);
 
-    reg[vx] = wait_for_key();
+    reg[vx] = waitkey();
 }
 
 void skipifdown(uint16_t opcode) 
 {
-    uint8_t vx = offset2(opcode);
-    uint8_t is_pressed = iskeydown(reg[vx]);
-    printf("key %i is %i\n a", reg[vx], iskeydown(reg[vx]));
+    uint8_t vx = reg[offset2(opcode)]; // value stored in register vx
+    uint8_t is_pressed = keys[vx];     // 1 if key in vx is pressed, 0 otherwise
 
+    // skip if key is pressed
     if (is_pressed) 
     {
-        printf("key %i is %i\n a", reg[vx], is_pressed);
         PC += 2;
     }
 }
 
 void skipnotdown(uint16_t opcode)
 {
-    uint8_t vx = offset2(opcode);
-    uint8_t is_pressed = iskeydown(reg[vx]);
-    printf("%x\n", vx);
+    uint8_t vx = reg[offset2(opcode)]; // value stored in register vx
+    uint8_t is_pressed = keys[vx];     // 1 if key in vx is pressed, 0 otherwise
 
+    // skip instruction if key is not pressed
     if (!is_pressed) 
     {
-        //printf("key %i is %i\n", reg[vx], is_pressed);
         PC += 2;
     }
 }
@@ -493,7 +562,9 @@ void skipnotdown(uint16_t opcode)
 // The I Register
 void itoa(uint16_t opcode)
 {
-    I = opcode & 0x0FFF;
+    uint16_t nnn = opcode & 0x0FFF;
+
+    I = nnn;
 }
 
 void iaddvx(uint16_t opcode)
@@ -508,30 +579,49 @@ void iaddvx(uint16_t opcode)
 void draw(uint16_t opcode)
 {
     // where to draw and how many bytes
-    uint16_t x = offset2(opcode);
-    uint16_t y = offset3(opcode);
-    uint16_t n = offset4(opcode);
+    uint16_t x = reg[offset2(opcode)];
+    uint16_t y = reg[offset3(opcode)];
+    uint16_t height = offset4(opcode);
 
-    // address of the data to draw in memory, we need it because we souldn't
-    // arbitrarily increment I
-    uint16_t data_addr = I;
+    // byte of data containing the pixel to be written
+    uint8_t pixel;
+    
+    // keep track of the bytei for the y axis and the bit_index for the 
+    // index of the bits inside the byte
+    uint16_t bytei, bit_index; 
+    reg[0xf] = 0;
 
-    // keep track of how much bytes were drawn
-    uint16_t ni;
-
-    for(ni = 0; ni <= n ; ++ni, ++data_addr)
+    for (bytei = 0; bytei < height; ++bytei)
     {
-        uint8_t value = rram(data_addr);
-        printf("%x\n", value);
-        render(value, x, y);
-    }    
-    exit(0 );
+        pixel = rram(bytei + I);
+
+        for (bit_index = 0; bit_index < 8; ++bit_index)
+        {
+            uint8_t bit = (pixel >> (7 - bit_index)) & 0x1;
+            
+            // the pixel in the screen
+            uint8_t *pixelp = &gfx[y + bytei]
+                                  [x + bit_index];
+
+
+            if (*pixelp == 1 && bit) reg[0xF] = 1;
+
+            *pixelp = *pixelp ^ bit;
+        }
+    }
+
+    draw_flag = 1;
 }
 
 void cls(uint16_t opcode)
 {
-    
-    clean_screen();
+    uint16_t row, column;
+    for (column = 0; column < GFX_COLUMNS; ++column)
+    {
+
+        memset(gfx[column], 0, GFX_ROWS);
+    }
+    draw_flag = 1;
 }
 
 
@@ -565,8 +655,7 @@ void set_BCD(uint16_t opcode)
     }
 
     // store digits into the ram address starting at I
-    uint8_t size = sizeof(digits) / sizeof(digits[0]);
-    memcpy(&ram[I], &digits, size);
+    memcpy(&ram[I], &digits, 3);
 }
 
 // register values and memory storage
@@ -576,10 +665,11 @@ void reg_dump(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t index;
 
-    for (index = 0x0; index <= vx; ++index, ++I)
+    for (index = 0x0; index <= vx; ++index)
     {
-        ram[I] = reg[index];
+        ram[index + I] = reg[index];
     }
+    I += vx + 1;
 }
 
 void reg_load(uint16_t opcode)
@@ -587,9 +677,9 @@ void reg_load(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t index;
 
-    for (index = 0x0; index <= vx; ++index, ++I)
+    for (index = 0x0; index <= vx; ++index)
     {
-        ram[I] = reg[index];
+        reg[index] = ram[I+index];
     }
+    I += vx + 1;
 }
-
