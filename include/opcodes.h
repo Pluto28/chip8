@@ -73,7 +73,7 @@ void vysubvx(uint16_t opcode);
 
 // Stores the most significant bit of VX in VF and then shifts
 // VX to the left by 1. 8XYE
-void msbvxvf_svvxl1(uint16_t opcode);
+void svflsl(uint16_t opcode);
 
 // Skips the next instruction if VX doesn't equal VY. 9XY0
 void next_if_vx_not_vy(uint16_t opcode);
