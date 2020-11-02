@@ -20,25 +20,6 @@
 #define offset4(opcode) ((opcode & 0x000F))
 
 
-/* 
- *  Lower 8 bits of the rFLAGS register, including sign flag (SF),
- *  zero flag (ZF), auxiliary carry flag (AF), parity flag (PF),
- *  and carry flag (CF).
- *   
- *   -> sign flag (SF)
- *  |  -> zero flag (ZF)
- *  | |  -> not used
- *  | | |  -> Auxiliary Carry Flag(AF)
- *  | | | |          
- *  0 0 0 0 0 0 0 0
- *          | | | |
- *          | | | -> carry flag (CF)
- *          | | -> not used
- *          | -> Parity Flag (PF)
- *          -> not used
-*/
-extern uint8_t flags(void);
-
 //******************************************************************************
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
 //******************************************************************************
