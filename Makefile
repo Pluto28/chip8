@@ -20,10 +20,10 @@ OBJS_DIR = src
 OBJ_NAME = chip8
 
 all : objs
-	$(CC) $(OBJS_DIR)/*.o -o $(OBJ_NAME) $(LINKER_FLAGS)
+	$(CC) $(OBJS_DIR)/*.o -o $(OBJ_NAME) $(COMPILER_FLAGS) $(LINKER_FLAGS)
 
 objs: $(OBJS)
-	$(CC) -c $(OBJS) $(LINKER_FLAGS)
+	$(CC) -c $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS)
 	mv *.o $(OBJS_DIR)/
 
 clean: 

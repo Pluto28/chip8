@@ -164,7 +164,7 @@ void debug(uint16_t opcode)
     uint8_t in;
     for (in = 0; in < sizeof(reg); ++in)
     {
-        printf("V%X: %#X Key%X: %#X\n", in, reg[in],\
+        printf("V%X: %#X    Key%X: %#X\n", in, reg[in],\
                 in, keys[in]);
     }
 
@@ -451,7 +451,6 @@ void vxandrand(uint16_t opcode)
 
     uint8_t mask = opcode & 0x00ff;  // mask value
     uint8_t rand = randnum();        // random number
-    printf("%i rand is \n", rand);
     reg[vx] = mask & rand;
 }
 

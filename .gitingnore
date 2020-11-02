@@ -1,0 +1,4 @@
+games
+chip8
+*.o
+.vscode
