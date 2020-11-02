@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/random.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
 
 #include <chip8.h>
 #include <opcodes.h>
@@ -100,14 +100,17 @@ int main(int argc, char *argv[])
     // initialize interpreter and load game into memory
     if (argc == 2)
     {
+        // initialize general variables and arrays to the desired values
         initialize();
 
-        FILE *filep = fopen(argv[argc-1], "rb");
-        game_size = load_game(filep);
+        // open game and load it in memory
+        game_size = load_game(argv[argc-1]);
 
+        // start window using sdl 
         init_win(&argv[argc-1],  GFX_ROWS * 10, GFX_COLUMNS * 10);
 
-
+        // start cpu emulation
+        emulate(game_size);
     }
     else 
     {
@@ -115,7 +118,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    emulate(game_size);
 }
 
 uint8_t randnum()
@@ -152,19 +154,18 @@ void debug(uint16_t opcode)
     printf("\n\nSP: %X I: %X", SP, I);
 }
 
+// TODO: better clock emulation
 void emulate(long game_size)
 {
-    clock_t stime, etime;
+    struct timespec start_time = {0, 0};
 
-    double tdiff;
-    // maximum execution length of each cycle in milliseconds
-    double cycle_max = 16;
+    gettimeofday(&start_time, NULL);
 
-    for (;PC <= (game_size + 0x200);)
+    uint8_t clock;
+
+    for (clock = 0; PC <= (game_size + 0x200); ++clock)
     {
-        // 
-        stime = clock();
-        
+
         set_keys(keys);
 
         cycle();
@@ -175,15 +176,43 @@ void emulate(long game_size)
 
             draw_flag = 0;
         }
-        stime = clock() - stime;
 
-        tdiff = (((double) (stime)) / CLOCKS_PER_SEC) * 1000;
-
-        if (tdiff < cycle_max)
+        if (clock == (int) (600 / CLOCK_HZ))
         {
-            double total_t = cycle_max - tdiff;
-            SDL_Delay( tdiff );
+            cpu_tick();
+            clock_handler(&start_time);
         }
+    }
+}
+
+void clock_handler(struct timespec *now_time)
+{
+    struct timespec end_time = {0, 0};
+    struct timespec difftime = {0, 0};
+
+    gettimeofday(&end_time, NULL);
+    
+    difftime.tv_nsec = (end_time.tv_nsec + (end_time.tv_sec * 1000000)) - \
+                       (now_time->tv_nsec + (now_time->tv_sec * 1000000));
+    
+    if (difftime.tv_nsec <= CLOCK_RATE_NS)
+    {
+        printf("%ld  %ld  %ld\n", now_time->tv_sec, end_time.tv_sec, difftime.tv_nsec);
+        usleep( CLOCK_RATE_NS - difftime.tv_nsec );
+    }
+
+}
+
+void cpu_tick()
+{
+    if(DT)
+    {
+        --DT;
+    }
+
+    if (ST)
+    {
+        --ST;
     }
 }
 
@@ -201,22 +230,6 @@ void cycle()
     #ifdef DEBUG
         debug(opcode);
     #endif
-    
-    if (DT) 
-    {
-        --DT;
-    }
-
-    if (ST)
-    {
-        --ST;
-    }
-
-    else 
-    {
-        printf("\nBeep!\n");
-        ST = 60;
-    }
 }
 
 
@@ -224,16 +237,12 @@ void initialize()
 {
 
     clean_screen();
-    // clear
-    for (int i = 0; i < GFX_COLUMNS; ++i)
-    {
-        memset(gfx[i], 0, GFX_ROWS - 1);
-        
-    }
+
     memset(&stack,  0, sizeof(stack) / sizeof(stack[0]));
     memset(&reg,    0,   sizeof(reg));
     memset(&ram,    0,   sizeof(ram));
     memset(&keys,   0,  sizeof(uint8_t) / sizeof(keys[0]));
+
     // load fontset
     strcpy(ram, fonts);
 
@@ -245,8 +254,20 @@ void initialize()
 
 }
 
-long load_game(FILE *filep)
+long load_game(char game_name[])
 {
+    FILE *filep;
+
+    // check if file exists
+    if (access(game_name, R_OK | F_OK) == 0)
+    {
+        filep = fopen(game_name, "rb");
+    }
+    else
+    {
+        fprintf(stderr, "[ERROR] File coudn't be accessed\n");
+        exit( 0 );
+    }
 
     // check for errors 
     int stream_status = ferror(filep);

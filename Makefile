@@ -11,7 +11,7 @@ CC = gcc
 LINKER_FLAGS = -lSDL2
 
 # OBJS specify the name of which files to compile as part of the project
-OBJS = funcs.s graphics.c chip8.c
+OBJS = graphics.c chip8.c
 
 # OBJS_DIR is where the compiled object files will be stored
 OBJS_DIR = src
