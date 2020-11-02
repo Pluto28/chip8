@@ -12,8 +12,8 @@
 
 
 // the background and foreground colors
+uint8_t sprites[4] = {104, 195, 163, 1};
 uint8_t background[4] = {0, 0, 0, 255};
-uint8_t sprites[4] = {255, 255, 255, 255};
 
 
 // remap the chip8 keys to conform better to new keyboards
@@ -161,6 +161,13 @@ void update_gfx(uint16_t columns, uint16_t rows, uint8_t gfx[][columns])
         //putchar('\n');
     }
     SDL_RenderPresent(ScreenRenderer);
+
+    // free memory stored for magnified
+    for (column = 0; column < h2; ++column)
+    {
+        free(magnified[column]);
+    }
+    free(magnified);
 }
 
 void clean_screen()
@@ -194,11 +201,11 @@ uint8_t set_keys(uint8_t *keys)
             case SDL_KEYDOWN: 
             {
                int8_t key = keymap(event.key.keysym.sym);
-               if (key >= 0 && key <= 15)
-               {
+                if (key >= 0 && key <= 15)
+                {
                    keys[key] = 1;
-               }
-               break;
+                }
+                break;
             }
 
             case SDL_KEYUP: 
@@ -206,11 +213,10 @@ uint8_t set_keys(uint8_t *keys)
                int8_t key = keymap(event.key.keysym.sym);
                if (key >= 0 && key <= 15)
                {
-                   keys[key] = 0;
+                    keys[key] = 0;
                }
                break;
             }
-
 
         }
     }
@@ -218,25 +224,36 @@ uint8_t set_keys(uint8_t *keys)
 
 uint8_t waitkey()
 {
-    fprintf(stdout, "Waiting for key");
+    fprintf(stdout, "\nWaiting for key\n");
 
     SDL_Event event;
     uint8_t key;
 
-    while (1)
+    while (true)
     {
         SDL_WaitEvent(&event);
 
-        key = keymap(event.key.keysym.sym);
-        
         if (event.type == SDL_QUIT)
         {
             SDL_Quit();
             exit( 0 );
         }
 
-        // break out of loop if key is in the wanted range
-        if (key >= 0 && key <= 15) break;
+        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
+        {
+            key = keymap(event.key.keysym.sym);
+
+            // break out of loop if key is in the expected range
+            if (key >= 0 && key <= 15) 
+            {
+                break;
+                printf("breaking\n");
+            }
+        }
+        else 
+        {
+            continue;
+        }
     }
 
     return key;
@@ -294,9 +311,6 @@ uint8_t keymap(uint key)
             break;
         case SDLK_v:
             key = KEYMAP_Z;
-            break;
-        default:
-            key = KEY_NULL;
             break;
     }
     return key;

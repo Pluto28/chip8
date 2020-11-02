@@ -52,4 +52,7 @@ long load_game(FILE *filep);
 // return random number between 0-255
 uint8_t randnum();
 
+// emulate cpu
+void emulate(long game_size);
+
 #endif

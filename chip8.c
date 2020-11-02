@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/random.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <chip8.h>
 #include <opcodes.h>
@@ -47,7 +48,7 @@ void (*zeroop[]) (uint16_t opcode) =
 {
     cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, cpuNULL, cpuNULL, cpuNULL, ret, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, ret
 };
 
 // Handle opcodes starting with 0x8
@@ -133,24 +134,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    //PC = START_ADDRS;
-    for (;PC <= (game_size + 0x200);)
-    {
-        set_keys(keys);
-
-        for (int keyi = 0; keyi < 16; ++keyi)
-        {
-            //printf("%i ", keys[keyi]);
-        }
-        //putchar('\n');
-        cycle();
-        if (draw_flag)
-        {
-            update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
-
-            draw_flag = 0;
-        }
-    }
+    emulate(game_size);
 }
 
 uint8_t randnum()
@@ -170,9 +154,56 @@ void cpuNULL(uint16_t opcode)
     fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
 }
 
-void debug()
+void debug(uint16_t opcode)
 {
-    ;
+    printf("\n\nPC: %#X opcode: %#X\n", PC, opcode);
+    printf("----------------------------------\n");
+
+    printf("regs:\n");
+
+    uint8_t in;
+    for (in = 0; in < sizeof(reg); ++in)
+    {
+        printf("V%X: %#X Key%X: %#X\n", in, reg[in],\
+                in, keys[in]);
+    }
+
+    printf("\n\nSP: %X I: %X", SP, I);
+}
+
+void emulate(long game_size)
+{
+    clock_t stime, etime;
+
+    double tdiff;
+    // maximum execution length of each cycle in milliseconds
+    double cycle_max = 16;
+
+    for (;PC <= (game_size + 0x200);)
+    {
+        // 
+        stime = clock();
+        
+        set_keys(keys);
+
+        cycle();
+
+        if (draw_flag)
+        {
+            update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
+
+            draw_flag = 0;
+        }
+        stime = clock() - stime;
+
+        tdiff = (((double) (stime)) / CLOCKS_PER_SEC) * 1000;
+
+        if (tdiff < cycle_max)
+        {
+            double total_t = cycle_max - tdiff;
+            SDL_Delay( tdiff );
+        }
+    }
 }
 
 void cycle()
@@ -183,8 +214,12 @@ void cycle()
     // xor 2 subsequent memory locations to get a 2 bytes opcode
     opcode = (rram(PC) << 8) | rram(PC+1);
     (*generalop[offset1(opcode)]) (opcode);
-
+    
     PC += 2;
+
+    #ifdef DEBUG
+        debug(opcode);
+    #endif
     
     if (DT) 
     {
@@ -195,13 +230,12 @@ void cycle()
     {
         --ST;
     }
+
     else 
     {
-        printf("Beep!\n");
+        printf("\nBeep!\n");
         ST = 60;
     }
-    
-    SDL_Delay( 5 );
 }
 
 
@@ -215,9 +249,10 @@ void initialize()
         memset(gfx[i], 0, GFX_ROWS - 1);
         
     }
-    memset(&stack, 0, sizeof(stack) / sizeof(stack[0]));
-    memset(&reg, 0, sizeof(reg));
-    memset(&ram, 0, sizeof(ram));
+    memset(&stack,  0, sizeof(stack) / sizeof(stack[0]));
+    memset(&reg,    0,   sizeof(reg));
+    memset(&ram,    0,   sizeof(ram));
+    memset(&keys,   0,  sizeof(uint8_t) / sizeof(keys[0]));
     // load fontset
     strcpy(ram, fonts);
 
@@ -304,8 +339,9 @@ void setvx(uint16_t opcode)
     // set register specified in msb - 4 bits to 
     // the lsb
     uint8_t vx = offset2(opcode);
+    uint8_t nn = opcode & 0x00ff;
 
-    reg[vx] = opcode & 0x00ff;
+    reg[vx] = nn;
 }
 
 void setvxtovy(uint16_t opcode)
@@ -318,28 +354,37 @@ void setvxtovy(uint16_t opcode)
 
 void addvx(uint16_t opcode)
 {   
-    uint8_t vx = offset2(opcode);
     uint8_t nn = opcode & 0x00ff;
+    uint8_t vx = offset2(opcode);
 
-    reg[vx] += nn;
+    reg[vx] = reg[vx] + nn;
 }
 
 void vxaddvy(uint16_t opcode) 
 {
+    //printf("running vxaddvy\n", opcode);
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
+    uint16_t result;
 
-    reg[vx] = reg[vx] + reg[vy];
-    uint8_t rflag = flags();
+    result = reg[vx] + reg[vy];
 
-    reg[0xf] = 0x10 & rflag;
+    reg[vx] = result;
+    uint8_t rflag = result >> 8;
+
+    reg[0xf] = rflag;
 }
 
 void vxsubvy(uint16_t opcode)
 {
-    reg[offset2(opcode)] -= reg[offset3(opcode)];
+    //printf("running vxsubvy %X\n", opcode);
+    uint8_t vx = offset2(opcode);
+    uint8_t vy = offset3(opcode);
 
-    reg[0xf] = flags() & 0x10;
+    reg[vx] = reg[vx] - reg[vy];
+    uint8_t borrow = reg[vy] > reg[vx];
+
+    reg[0xf] = borrow;
 }
 
 void vysubvx(uint16_t opcode)
@@ -347,11 +392,10 @@ void vysubvx(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
+    reg[vx] = reg[vy] - reg[vx];
+    uint8_t borrow = reg[vx] < reg[vy];
 
-    // register vx = vy - vx
-    reg[vx] -= reg[vy];
-
-    reg[0xf] = flags() & 0x10;
+    reg[0xf] = borrow;
 }
 
 void vxorvy(uint16_t opcode)
@@ -359,7 +403,7 @@ void vxorvy(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    reg[vx] |= reg[vy];
+    reg[vx] = reg[vx] | reg[vy];
 }
 
 void vxandvy(uint16_t opcode)
@@ -367,7 +411,7 @@ void vxandvy(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    reg[vx] &= reg[vy];
+    reg[vx] = reg[vx] & reg[vy];
 }
 
 void vxxorvy(uint16_t opcode) 
@@ -375,7 +419,7 @@ void vxxorvy(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    reg[vx] ^= reg[vy];
+    reg[vx] = reg[vx] ^ reg[vy];
 }
 
 void lsb_vx_in_vf_r(uint16_t opcode)
@@ -383,8 +427,10 @@ void lsb_vx_in_vf_r(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    reg[vx] = reg[vy] >> 1;
-    reg[0xf] = reg[vy] & 0x01; 
+    reg[0xf] = reg[vx] & 0x01;
+    reg[vx] = reg[vx] >> 1;
+
+    //reg[0xf] = reg[vy] & 0x01; 
 }
 
 void svflsl(uint16_t opcode)
@@ -392,11 +438,11 @@ void svflsl(uint16_t opcode)
     uint8_t vx = offset2(opcode);
     uint8_t vy = offset3(opcode);
 
-    // shift vy by one bit and store the shifted value in vx
-    reg[vx] = reg[vy] >> 1;
-
     // store msb of vx in vf
-    reg[0xf] = (reg[vy] & 0x80) >> 7;
+    reg[0xf] = (reg[vx] & 0x80) >> 7;
+
+    // shift vy by one bit and store the shifted value in vx
+    reg[vx] = reg[vx] << 1;
 }
 
 void vxandrand(uint16_t opcode)
@@ -405,12 +451,12 @@ void vxandrand(uint16_t opcode)
 
     uint8_t mask = opcode & 0x00ff;  // mask value
     uint8_t rand = randnum();        // random number
-
+    printf("%i rand is \n", rand);
     reg[vx] = mask & rand;
 }
 
 
-// Flow Control with Jumps
+// Flow Control with s
 
 void jump(uint16_t opcode)
 {
@@ -428,7 +474,6 @@ void jmpaddv0(uint16_t opcode)
     uint16_t nnn = opcode & 0x0fff;
 
     uint16_t addr = nnn + reg[0x0];
-
     PC = addr - 2;
 }
 
@@ -439,7 +484,7 @@ void call(uint16_t opcode)
     // store actual address into stack to return to 
     // it after
     stack[SP] = PC;
-    SP++;
+    ++SP;
 
     PC = (0x0FFF & opcode) - 2;
 }
@@ -447,8 +492,8 @@ void call(uint16_t opcode)
 void ret(uint16_t opcode)
 {
 
-    //SP--;
-    PC = stack[--SP];
+    SP--;
+    PC = stack[SP];
 }
 // TODO: implement the 0NNN instruction if needed
 
@@ -530,7 +575,6 @@ void set_st(uint16_t opcode)
 void vx_to_key(uint16_t opcode)
 {
     uint8_t vx = offset2(opcode);
-
     reg[vx] = waitkey();
 }
 
@@ -570,8 +614,8 @@ void itoa(uint16_t opcode)
 void iaddvx(uint16_t opcode)
 {
     uint8_t vx = offset2(opcode);
+    I = I + reg[vx];
 
-    I += reg[vx];
 }
 
 // drawing sprites to the screen
@@ -669,7 +713,7 @@ void reg_dump(uint16_t opcode)
     {
         ram[index + I] = reg[index];
     }
-    I += vx + 1;
+    //I = I + vx + 1;
 }
 
 void reg_load(uint16_t opcode)
@@ -681,5 +725,5 @@ void reg_load(uint16_t opcode)
     {
         reg[index] = ram[I+index];
     }
-    I += vx + 1;
+    //I = I + vx + 1;
 }
