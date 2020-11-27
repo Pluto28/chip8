@@ -17,8 +17,7 @@ instructions to install SDL2 for your respective platform
 - Arch Linux:\
     `sudo pacman -S sdl2`
 
-If your platform is not listed here, please refer [to](https://wiki.libsdl.org/Installation)  
-for the official documentation.
+If your platform is not listed here, please refer to the [official documentation](https://wiki.libsdl.org/Installation)
 
 ### Compile Project
 
