@@ -1,5 +1,7 @@
 # chip8
 
+Simple chip8 emulator made for fun
+
 ### Install SDL2
 
 To compile this project you need to have the SDL2 library installed. Follow the 
@@ -19,6 +21,6 @@ instructions to install SDL2 for your respective platform
 
 If your platform is not listed here, please refer to the [official documentation](https://wiki.libsdl.org/Installation)
 
-### Compile Project
+### Compilation
 
 Run `make` inside the chip8 directory
