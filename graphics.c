@@ -94,7 +94,7 @@ uint8_t** magnify(uint16_t h1, uint16_t w1, uint16_t h2, uint16_t w2, uint8_t bi
 {
 
     uint y_ratio = (uint)((w1<<16)/w2) + 1;
-    uint x_ratio = (uint)((h1<<16)/h2) + 1;;
+    uint x_ratio = (uint)((h1<<16)/h2) + 1;
 
     // create a dinamically allocated 2d array
     // the new sizes computed according to the ratio

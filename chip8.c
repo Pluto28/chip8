@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <features.h>
 #include <stdint.h>
 #include <sys/random.h>
 #include <unistd.h>
+
+#define __USE_GNU
 #include <sys/time.h>
 
 #include <chip8.h>
 #include <opcodes.h>
 #include <graphics.h>
-
 
 #define rram(addr) (ram[addr])
 #define wram(addr, val) (ram[addr] = val)
@@ -18,7 +20,6 @@
 #define offset2(opcode) ((opcode & 0x0F00) >> 8)
 #define offset3(opcode) ((opcode & 0x00F0) >> 4)
 #define offset4(opcode) ((opcode & 0x000F))
-
 
 //******************************************************************************
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
@@ -134,7 +135,7 @@ uint8_t randnum()
 
 void cpuNULL(uint16_t opcode)
 {
-    fprintf(stderr, "[WARNING] Unknown opcode %#X\n", opcode);
+    fprintf(stderr, "[WARNING] Unknown opcode %#X at %#X\n", opcode, PC);
 }
 
 void debug(uint16_t opcode)
@@ -154,10 +155,11 @@ void debug(uint16_t opcode)
     printf("\n\nSP: %X I: %X", SP, I);
 }
 
-// TODO: better clock emulation
+// TODO: refactor code to be more efficient
 void emulate(long game_size)
 {
-    struct timespec start_time = {0, 0};
+    // when the emulation was started
+    struct timeval start_time;
 
     gettimeofday(&start_time, NULL);
 
@@ -170,6 +172,7 @@ void emulate(long game_size)
 
         cycle();
 
+        // render to screen is draw_flag is set to 1
         if (draw_flag)
         {
             update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
@@ -177,29 +180,55 @@ void emulate(long game_size)
             draw_flag = 0;
         }
 
-        if (clock == (int) (600 / CLOCK_HZ))
+        // true if we executed the amount of cycles per second
+        // defined in CLOCK_HZ
+        if (clock == CLOCK_HZ)
         {
             cpu_tick();
             clock_handler(&start_time);
+            clock = 0;
         }
     }
 }
 
-void clock_handler(struct timespec *now_time)
+void clock_handler(struct timeval *start_time)
 {
-    struct timespec end_time = {0, 0};
-    struct timespec difftime = {0, 0};
+    struct timeval end_time = {0, 0};
+    struct timeval difftime = {0, 0};
+    struct timeval clock_rate = {0, CLOCK_RATE_MS};
 
+    // nonzero if the operation end_time-start_time is
+    // smaller than CLOCK_RATE_MS
+    uint8_t diff_smaller_rate;
+
+    // Time of end
     gettimeofday(&end_time, NULL);
     
-    difftime.tv_nsec = (end_time.tv_nsec + (end_time.tv_sec * 1000000)) - \
-                       (now_time->tv_nsec + (now_time->tv_sec * 1000000));
-    
-    if (difftime.tv_nsec <= CLOCK_RATE_NS)
+    // subtract start_time from end_time and store the result in difftime
+    timersub(&end_time, start_time, &difftime);
+
+    diff_smaller_rate = timercmp(&difftime, &clock_rate, <);
+
+    // if the difference between the start and ending time is smaller than the
+    // amount of nanoseconds that 60 clocks take, then we need to sleep the
+    // difference
+    if (diff_smaller_rate)
     {
-        printf("%ld  %ld  %ld\n", now_time->tv_sec, end_time.tv_sec, difftime.tv_nsec);
-        usleep( CLOCK_RATE_NS - difftime.tv_nsec );
+        // get the amount of time we need to sleep in nanoseconds
+        struct timeval sleep_ns;
+        // subtract difftime from clock_rate to get the amount of time to sleep
+        timersub(&clock_rate, &difftime, &sleep_ns);
+
+        // convert the sleep_ns timeval structure to a timespec structure
+        struct timespec sleep_time;
+        TIMEVAL_TO_TIMESPEC(&sleep_ns, &sleep_time);
+
+        nanosleep(&sleep_time, NULL);
     }
+
+    // update start_time to the ending time of the last cycle
+    start_time->tv_sec = end_time.tv_sec;
+    start_time->tv_usec = end_time.tv_usec;
 
 }
 
@@ -209,10 +238,18 @@ void cpu_tick()
     {
         --DT;
     }
+    else 
+    {
+        DT = 60;
+    }
 
     if (ST)
     {
         --ST;
+    }
+    else 
+    {
+        ST = 60;
     }
 }
 
@@ -304,10 +341,6 @@ void msbis0(uint16_t opcode)
     {
         uint16_t index = offset4(opcode);
         (*zeroop[index]) (opcode);
-    }
-    else 
-    {
-        //printf("a\n");
     }
 }
 

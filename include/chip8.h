@@ -17,9 +17,7 @@
 #define FONTSET_BYTES_PER_CHAR 5
 
 #define CLOCK_HZ 60
-#define CLOCK_RATE_NS ((int) ((1.0 / CLOCK_HZ) * 1000000))
-
-#define CPU_TICKS ((int) ())
+#define CLOCK_RATE_MS ((int) ((1.0 / CLOCK_HZ) * 1000000))
 
 uint8_t draw_flag;
 
@@ -63,6 +61,9 @@ void cpu_tick();
 // emulate cpu
 void emulate(long game_size);
 
-void clock_handler(struct timespec *now_time);
+// responsible for handling the clock difference between the starting
+// and ending time and sleeping if the elapsed time is smaller than 
+// one second
+void clock_handler(struct timeval *now_time);
 
 #endif
