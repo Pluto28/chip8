@@ -30,5 +30,4 @@ Run `make` inside the chip8 directory
 -[x] Text debug probe with pausing habilities
 -[x] Add support for posix compliant command lines options using argv
 -[x] Rewrite the graphics engine to be more efficient
--[x] 
-
+-:white_large_square:
