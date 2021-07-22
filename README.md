@@ -27,8 +27,8 @@ If your platform is not listed here, please refer to the [official documentation
 Run `make` inside the chip8 directory
 
 ### TODO
-    - [ ] Text debug probe with pausing habilities
+   - [ ] Text debug probe with pausing habilities
 
-    - [ ] Add support for posix compliant command lines options using argv
+   - [ ] Add support for posix compliant command lines options using argv
 
-    - [ ] Rewrite the graphics engine to be more efficient
+   - [ ] Rewrite the graphics engine to be more efficient
