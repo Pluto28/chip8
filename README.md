@@ -1,6 +1,7 @@
 # chip8
 
-Simple chip8 emulator made for fun
+This is a simple chip8 emulator made with c and sdl2, i really enjoyed the project
+and i hope you can use it for something usefull
 
 ### Install SDL2
 
@@ -24,3 +25,8 @@ If your platform is not listed here, please refer to the [official documentation
 ### Compilation
 
 Run `make` inside the chip8 directory
+
+## TODOS:
+-[] Text debug probe with pausing habilities
+-[] Add support for posix compliant command lines options using argv
+-[] Rewrite the graphics engine to be more efficient
