@@ -28,6 +28,10 @@ Run `make` inside the chip8 directory
 
 ## TODOS:
 :white_large_square: Text debug probe with pausing habilities
+
 :white_large_square: Add support for posix compliant command lines options using argv
+
 :white_large_square: Rewrite the graphics engine to be more efficient
+
 :white_large_square:
+
