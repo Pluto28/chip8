@@ -157,7 +157,7 @@ void debug(uint16_t opcode)
     printf("\n\nSP: %X I: %X", SP, I);
 }
 
-// TODO: refactor code to be more efficient
+// TODO: rewrite this function
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
     // when the emulation was started
@@ -186,11 +186,10 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
     }
 }
 
-void clock_handler(struct timeval *start_time)
+void cpu_clock(struct timeval *start_time)
 {
 
-    //TODO: rewrite
-    // if the 
+     
 }
 
 void cpu_tick(cpu *cpuData)
@@ -252,7 +251,7 @@ uint load_game(char *game_name, MemMaps *mems)
     }
 
 
-    // read at most 0xdff bytes of data, respecting maximum RAM size 
+    // read at most 0xdff bytes of data, respecting the maximum RAM size 
     // for applications that is specified for chip8
     uint bread = (uint) fread(*(mem->ram + 0x200), sizeof(char), 0xdff, filep);
 
