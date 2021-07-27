@@ -9,11 +9,20 @@
 #include <stdlib.h>
 
 #include "graphics.h"
+#include "chip8.h"
 
 
-// the background and foreground colors
 uint8_t sprites[4] = {104, 195, 163, 1};
-uint8_t background[4] = {0, 0, 0, 255};
+
+/*
+ * background colors
+ *
+ * bg[0] = red
+ * bg[1] = blue
+ * bg[2] = green
+ * bg[3] = alpha
+ */
+uint8_t bg[4] = {0, 0, 0, 255};
 
 
 // remap the chip8 keys to conform better to new keyboards
@@ -59,12 +68,22 @@ enum KeyPressMappings
 // *                                 rendering                                  *
 // ******************************************************************************
 
+// this struct store pointers to the SDL2 structs that are used to 
+// draw and read pixels from the screen
+struct WindowDrawData
+{
+
+};
+
+// Store colors to be used when drawing pixels or 
+
 // main sdl structures used by program
 SDL_Window *ScreenWindow;
 SDL_Renderer *ScreenRenderer;
+SDL_Surface *WindowSurface;
 
 
-void init_win(char *game_name, int width, int height)
+void init_win(char *game_name, uint8_t scale_factor)
 {
 
     // initialize sdl
@@ -77,113 +96,108 @@ void init_win(char *game_name, int width, int height)
         ScreenWindow = SDL_CreateWindow(*game_name,
                                          SDL_WINDOWPOS_CENTERED,
                                          SDL_WINDOWPOS_CENTERED,
-                                         width, height,
+                                         WINDOW_WIDTH * scale_factor, 
+                                         WINDOW_HEIGHT * scale_factor,
                                          0);
-        if (ScreenWindow == NULL)
-        {
+
+        if (ScreenWindow == NULL) {
             fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
         }
 
-        ScreenRenderer = SDL_CreateRenderer(ScreenWindow, -1, SDL_RENDERER_ACCELERATED);
-        if (ScreenRenderer == NULL)
-        {
-            fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
+        ScreenRenderer = SDL_CreateRenderer(ScreenWindow,
+                                            -1,
+                                            SDL_RENDERER_ACCELERATED);
+
+        if (ScreenRenderer == NULL) {
+            fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
+        }
+        
+        WindowSurface = SDL_GetWindowSurface(ScreenWindow);
+
+        if (WindowSurface == NULL) {
+            fprintf(stderr, "Could not grab surface: %s\n", SDL_GetError());
+        }
+
+        if (SDL_SetSurfaceRLE(WindowSurface, 1) == NULL) {
+            fprintf(stderr, "Failed setting surface RLE: %s", SDL_GetError());
         }
     }
 }
 
 
-uint8_t** magnify(uint16_t h1, uint16_t w1, uint16_t h2, uint16_t w2, uint8_t bitarr[][w1])
-{
-
-    uint y_ratio = (uint)((w1<<16)/w2) + 1;
-    uint x_ratio = (uint)((h1<<16)/h2) + 1;
-
-    // create a dinamically allocated 2d array
-    // the new sizes computed according to the ratio
-
-    uint8_t **magnified = (uint8_t **)malloc(w2 * h2);
-
-    uint16_t actualh; // height being iterated
-    for (actualh = 0; actualh < h2; ++actualh)
-    {
-        magnified[actualh] = (uint8_t*)calloc(w2, sizeof(bitarr[0][0]));
-    }
-
-    // resize the bitarray using nearest neighbor scaling
-    uint16_t y, x, x2, y2;
-    for (y = 0; y < h2; ++y)
-    {
-        for (x = 0; x < w2; ++x)
-        {
-            x2 = ((x * x_ratio)>>16) ;
-            y2 = ((y * y_ratio)>>16) ;
-            magnified[y][x] = bitarr[y2][x2];
-
-        }
-    }
-
-    return magnified;
-
-}
-
-
-
-void update_gfx(uint16_t columns, uint16_t rows, uint8_t gfx[][columns])
-{   
-
-    // magnification ratio
-    uint8_t ratio = 10;
-
-    // height and width of magnified 2d array
-    uint16_t h2 = (columns * ratio);
-    uint16_t w2 = (rows * ratio);
-
-    uint8_t **magnified = magnify(columns, rows, h2, w2 , gfx);
-
-    // iterate a magnified array and render it's contents to the screen
-    uint16_t row, column;
-
-    for (column = 0; column < h2; ++column)
-    {
-        for (row = 0; row < w2; ++row)
-        {
-            if (magnified[column][row])
-            {
-                SDL_SetRenderDrawColor(ScreenRenderer, sprites[0], sprites[1],\
-                sprites[2], sprites[3]);
-            }
-            else
-            {
-                SDL_SetRenderDrawColor(ScreenRenderer, background[0], background[1],\
-                background[2], background[3]);
-            }
-            SDL_RenderDrawPoint(ScreenRenderer, row, column);
-            //printf("%i", magnified[column][row]);
-        }
-        //putchar('\n');
-    }
-    SDL_RenderPresent(ScreenRenderer);
-
-    // free memory stored for magnified
-    for (column = 0; column < h2; ++column)
-    {
-        free(magnified[column]);
-    }
-    free(magnified);
-}
 
 void clean_screen()
 {   
-    SDL_SetRenderDrawColor(ScreenRenderer, 0, 0, 0, 1);
+    SDL_SetRenderDrawColor(ScreenRenderer, 
+                           bg[0], bg[1], bg[2], bg[3]);
     SDL_RenderClear(ScreenRenderer);
-    SDL_RenderPresent(ScreenRenderer);
 }
 
+// TODO: add error checking
+void update_window(uint8_t **screen_map, uint8_t ScaleFactor)
+{
+    uint32_t BgRGBA = SDL_MapRGBA(WindowSurface->format,
+                                   bg[0], bg[1], bg[2], bg[3]);
 
-// map our screen memory map to a sdl sourface so we can perform efficient 
-// computations with it and supposedly magnify it without too much bootleneck
-void MapToSurface()
+    uint32_t SpritesRGBA = SDL_MapRGBA(WindowSurface->format,
+                                       sprites[0], sprites[1],
+                                       sprites[2], sprites[3]);
+
+    // This is the surface that will store the memory map for the emulator 
+    // screen
+    SDL_Surface *ChipSurface;
+    ChipSurface = SDL_CreateRGBSurface(0, 
+                                       WindowSurface->w / ScaleFactor,
+                                       WindowSurface->h / ScaleFactor,
+                                       32,
+                                       0, 0, 0, 0); 
+
+    // 
+    SDL_LockSurface(WindowSurface);
+    SDL_LockSurface(ChipSurface);
+
+    int HeightIndex, WidthIndex;
+    uint32_t SurfaceIndex;       // which pixel to access
+
+    for(HeightIndex = 0; HeightIndex <= (WindowSurface->h); ++HeightIndex)
+    {
+        for(WidthIndex = 0; WidthIndex <= (WindowSurface->pitch); ++WidthIndex)
+        {
+            // TODO: this should be very inefficient, change it if needed(in
+            // case it takes too much time to execute) 
+            SurfaceIndex = ((ChipSurface->pitch) * HeightIndex) + WidthIndex;
+            // if pixel is set to 1, then the color is for sprites,
+            // and if 0, the color is the background color
+            if (screen_map[HeightIndex][WidthIndex]) {
+                SDL_memset4(ChipSurface->pixels + SurfaceIndex,
+                            SpritesRGBA, 1);
+            } else {
+                SDL_memset4(ChipSurface->pixels + SurfaceIndex,
+                            BgRGBA, 1);
+            }
+        }
+    }
+
+    // stretch WindowSurface
+    SDL_Rect StretchRect;
+    StretchRect.h = WindowSurface->h;
+    StretchRect.w = WindowSurface->w;
+    StretchRect.x = 0;
+    StretchRect.y = 0;
+    SDL_BlitScaled(ChipSurface, NULL, WindowSurface, &StretchRect);
+
+    // copy the blitted surface to a texture and then render the texture
+    SDL_Texture *TextureToRender;
+    TextureToRender = SDL_CreateTextureFromSurface(ScreenRenderer, WindowSurface);
+    SDL_RenderCopy(ScreenRenderer, TextureToRender, NULL, NULL);
+    SDL_RenderPresent(ScreenRenderer);
+
+    SDL_UnlockSurface(ChipSurface);
+    SDL_UnlockSurface(WindowSurface);
+
+    SDL_FreeSurface(ChipSurface);
+    SDL_DestroyTexture(TextureToRender);
+}
 
 //******************************************************************************
 //*                     key input handling                                     *
@@ -254,7 +268,6 @@ uint8_t waitkey()
             if (key >= 0 && key <= 15) 
             {
                 break;
-                printf("breaking\n");
             }
         }
         else 
