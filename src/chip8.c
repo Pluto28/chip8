@@ -155,7 +155,7 @@ void cpuNULL(uint16_t opcode)
     printf("\n\nSP: %X I: %X", SP, I);
 }*/
 
-// TODO: refactor code to be more efficient
+// TODO: rewrite this function
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
     struct timespec nsResMonotonic;
@@ -183,11 +183,16 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
     }
 }
 
+<<<<<<< HEAD
 void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
+=======
+void cpu_clock(struct timeval *start_time)
+>>>>>>> 160e86b6c26a5c70f9880523be8906d91fd85c3a
 {
     // TODO: we should probably move this to a structure encapsulating all 
     // details that are emulation specific
 
+<<<<<<< HEAD
     // amount of ns that executing 1 cycle takes
     long cycle_ns = 1000000000 / CLOCK_HZ;
     
@@ -216,6 +221,9 @@ void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
             perror("chip8: ");
         }
     }
+=======
+     
+>>>>>>> 160e86b6c26a5c70f9880523be8906d91fd85c3a
 }
 
 void cpu_tick(cpu *cpuData, struct timespec *timersClock)
@@ -284,7 +292,7 @@ uint load_game(char *game_name, MemMaps *mems)
     }
 
 
-    // read at most 0xdff bytes of data, respecting maximum RAM size 
+    // read at most 0xdff bytes of data, respecting the maximum RAM size 
     // for applications that is specified for chip8
     uint bread = (uint) fread((mems->ram + 0x200),
                               sizeof(char),
