@@ -6,9 +6,7 @@
 #include <stdint.h>
 #include <sys/random.h>
 #include <unistd.h>
-
-#define __USE_GNU
-#include <sys/time.h>
+#include <time.h>
 
 #include "chip8.h"
 #include "opcodes.h"
@@ -109,10 +107,10 @@ int main(int argc, char *argv[])
         initialize(cpuData, mems);
 
         // open game and load it in memory
-        game_size = load_game(argv[argc-1]);
+        game_size = load_game(argv[argc-1], mems);
 
         // start window using sdl 
-        init_win(&argv[argc-1],  GFX_ROWS * 10, GFX_COLUMNS * 10);
+        init_win(&argv[argc-1], 1);
 
         // start cpu emulation
         emulate(game_size, cpuData, mems);
@@ -140,7 +138,7 @@ void cpuNULL(uint16_t opcode)
     fprintf(stderr, "[WARNING] Unknown opcode %#X at %#X\n", opcode, PC);
 }
 
-void debug(uint16_t opcode)
+/*void debug(uint16_t opcode)
 {
     printf("\n\nPC: %#X opcode: %#X\n", PC, opcode);
     printf("----------------------------------\n");
@@ -155,65 +153,99 @@ void debug(uint16_t opcode)
     }
 
     printf("\n\nSP: %X I: %X", SP, I);
-}
+}*/
 
 // TODO: refactor code to be more efficient
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
-    // when the emulation was started
-    struct timeval start_time;
+    struct timespec nsResMonotonic;
+    struct timespec startTime, timersClock;
+    
+    clock_getres(CLOCK_MONOTONIC, &nsResMonotonic);
+    clock_gettime(CLOCK_MONOTONIC, &timersClock);
 
-    gettimeofday(&start_time, NULL);
-
-    uint8_t clock;
-
-    for (clock = 0; PC <= (game_size + 0x200); ++clock)
+    for (;(cpuData->pc) <= (game_size + 0x200); )
     {
-
-        set_keys(keys);
+        clock_gettime(CLOCK_MONOTONIC, &startTime);
+        set_keys(memoryMaps->keys);
 
         cycle();
 
         // render to screen if draw_flag is set to 1
         if (draw_flag) {
-            update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
+            // TODO: call drawing function
 
             draw_flag = 0;
         }
-
+        cpu_tick()
         
         cpu_tick(cpuData);
     }
 }
 
-void clock_handler(struct timeval *start_time)
+void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
 {
+    // TODO: we should probably move this to a structure encapsulating all 
+    // details that are emulation specific
 
-    //TODO: rewrite
-    // if the 
+    // amount of ns that executing 1 cycle takes
+    long cycle_ns = 1000000000 / CLOCK_HZ;
+    
+    // TODO: we should check if the resolution is high enough to handle 
+    // the amount of nanoseconds that one cycle takes, and if not, we should 
+    // increase the amount of cycles to execute before calling this function
+    // (one cycle per call should yield better resolution though)
+
+    // we sleep the difference between the time it takes to execute a cycle in 
+    // nanoseconds and the time it took to execute the cycle
+    struct timespec timenow;
+    clock_gettime(CLOCK_MONOTONIC, &timenow);
+
+    // Amount of time the cycle took to execute
+    long CycleExec_ns = timenow.tv_nsec - startTime->tv_nsec;
+
+    // in case the cycle took more than or the exact amount of time
+    // it should take to execute, we don't need to sleep and can just 
+    // end the function
+    if (CycleExec_ns < cycle_ns) {
+        struct timespec sleeptime;
+        sleeptime.tv_nsec = cycle_ns - CycleExec_ns;
+        sleeptime.tv_sec = 0;
+
+        if(clock_nanosleep(CLOCK_MONOTONIC, 0, &sleeptime, NULL) == -1) {
+            perror("chip8: ");
+        }
+    }
 }
 
-void cpu_tick(cpu *cpuData)
+void cpu_tick(cpu *cpuData, struct timespec *timersClock)
 {
-    if (cpuData->dt == 60) {
-        cpuData->dt = 0;
-    } else {
-        (cpuData->dt) += 1;
-    }
+    // TODO: store this value somewhere else, since it can just be set 
+    // at the start of the program and never more
 
-    if (cpuData->st == 60) {
-        cpuData->st = 0;
-    } else {
-        (cpuData->st) += 1;
+    // the time in ns that should pass between each clock update
+    long clock_ns = 1000000000 / 60;
+
+    struct timespec nowtime;
+    clock_gettime(CLOCK_MONOTONIC, &nowtime);
+
+    long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
+    if (diffNs >= clock_ns) {
+        
+        if (cpuData->dt > 0) {
+            cpuData->dt -= 1;
+        }
+
+        if (cpuData->st > 0) {
+            // TODO: call function to play that good ol jazz.
+            cpuData->st -= 1;
+        }
     }
 }
 
 void cycle()
 {
-
-    // store the opcode to be executed
     uint16_t opcode;
-    // xor 2 subsequent memory locations to get a 2 bytes opcode
     opcode = (rram(PC) << 8) | rram(PC+1);
     (*generalop[offset1(opcode)]) (opcode);
     
@@ -238,8 +270,8 @@ void initialize(cpu *cpuData, MemMaps *mems)
     strcpy((mems->ram), fonts);
 
     cpuData->i = 0; 
+    cpuData->pc = START_ADDRS;
     draw_flag = 0;
-    PC = START_ADDRS;
 }
 
 uint load_game(char *game_name, MemMaps *mems)
@@ -254,7 +286,10 @@ uint load_game(char *game_name, MemMaps *mems)
 
     // read at most 0xdff bytes of data, respecting maximum RAM size 
     // for applications that is specified for chip8
-    uint bread = (uint) fread(*(mem->ram + 0x200), sizeof(char), 0xdff, filep);
+    uint bread = (uint) fread((mems->ram + 0x200),
+                              sizeof(char),
+                              0xdff,
+                              filep);
 
     if(ferror(filep)) {
         fprintf(stderr, "chip8: error reading file");
