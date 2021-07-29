@@ -69,7 +69,7 @@ void (*generalop[16]) (uint16_t opcode) =
 };
 
 // fonts
-uint8_t fonts[80] = {
+static uint8_t fonts[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0,   // 0
     0x20, 0x60, 0x20, 0x20, 0x70,   // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0,   // 2
@@ -118,7 +118,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "usage: ./chip8 <game>\n");
         exit(1);
     }
-
 }
 
 uint8_t randnum()
@@ -158,10 +157,9 @@ void cpuNULL(uint16_t opcode)
 // TODO: refactor code to be more efficient
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
-    struct timespec nsResMonotonic;
-    struct timespec startTime, timersClock;
     
-    clock_getres(CLOCK_MONOTONIC, &nsResMonotonic);
+
+    struct timespec startTime, timersClock;
     clock_gettime(CLOCK_MONOTONIC, &timersClock);
 
     for (;(cpuData->pc) <= (game_size + 0x200); )
@@ -177,9 +175,8 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 
             draw_flag = 0;
         }
-        cpu_tick()
         
-        cpu_tick(cpuData);
+        cpu_tick(cpuData, &timersClock);
     }
 }
 
@@ -240,20 +237,20 @@ void cpu_tick(cpu *cpuData, struct timespec *timersClock)
             // TODO: call function to play that good ol jazz.
             cpuData->st -= 1;
         }
+
+        clock_gettime(CLOCK_MONOTONIC, timersClock);
     }
 }
 
-void cycle()
+// TODO: i don't think we need this, maybe pass everything here to the emulate
+// function
+void cycle(cpu *cpuData)
 {
     uint16_t opcode;
-    opcode = (rram(PC) << 8) | rram(PC+1);
+    opcode = (rram(cpuData->pc) << 8) | rram((cpuData->pc) + 1);
     (*generalop[offset1(opcode)]) (opcode);
     
-    PC += 2;
-
-    #ifdef DEBUG
-        debug(opcode);
-    #endif
+    (cpuData->pc) += 2;
 }
 
 
@@ -262,15 +259,27 @@ void initialize(cpu *cpuData, MemMaps *mems)
 
     clean_screen();
 
-    // allocate memory for our structures
     cpuData = (cpu *)     malloc(sizeof(cpu));
-    mems =    (MemMaps *) malloc(sizeof(MemMaps));
+    if (cpuData == NULL) {
+        perror("chip8: ");
+    }
+
+    mems = (MemMaps *) malloc(sizeof(MemMaps));
+    if (mems == NULL) {
+        perror("chip8: ");
+    }
+
+    // Can you smell that? Yes, my friend, that is the smell of sanitizer
+    explicit_bzero(mems->ram, 
+                   (RAM_END-1) * sizeof(mems->ram[0]));
     
     // load fontset
-    strcpy((mems->ram), fonts);
+    strcpy(mems->ram, fonts, (FONTSET_SIZE - 1);
 
-    cpuData->i = 0; 
+    // set some default values
+    cpuData->i = 0;
     cpuData->pc = START_ADDRS;
+
     draw_flag = 0;
 }
 
@@ -284,11 +293,12 @@ uint load_game(char *game_name, MemMaps *mems)
     }
 
 
-    // read at most 0xdff bytes of data, respecting maximum RAM size 
-    // for applications that is specified for chip8
+    // read at most 0xdff bytes of data, respecting the maximum amount of
+    // ram that is available to store applications, according to the chip8
+    // specification
     uint bread = (uint) fread((mems->ram + 0x200),
                               sizeof(char),
-                              0xdff,
+                              RAM_SIZE - PROG_RAM_START,
                               filep);
 
     if(ferror(filep)) {
