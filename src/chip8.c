@@ -24,50 +24,6 @@
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
 //******************************************************************************
 
-// Handle opcodes starting with 0x0
-void (*zeroop[]) (uint16_t opcode) =
-{
-    cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, cpuNULL, cpuNULL, cpuNULL, ret
-};
-
-// Handle opcodes starting with 0x8
-void (*eightop[]) (uint16_t opcode) = 
-{
-    setvxtovy, vxorvy, vxandvy, vxxorvy, 
-    vxaddvy, vxsubvy, lsb_vx_in_vf_r, 
-    vysubvx, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, cpuNULL, cpuNULL, 
-    svflsl
-};
-
-// Handle opcodes starting with 0xE
-void (*e_op[]) (uint16_t opcode) = 
-{
-    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
-    cpuNULL, skipifdown, skipnotdown
-};
-
-// Handle opcodes starting with 0xF
-void (*special[]) (uint16_t opcode) =
-{
-    cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
-    reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
-    vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx, cpuNULL
-
-};
-
-// Call other arrays of functions 
-void (*generalop[16]) (uint16_t opcode) =
-{
-    msbis0, jump, call, se, sne, 
-    svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
-    itoa, jmpaddv0, vxandrand, draw, msbise, 
-    msbisf
-};
-
 // fonts
 static uint8_t fonts[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0,   // 0
@@ -132,12 +88,12 @@ uint8_t randnum()
     return number;
 }
 
-void cpuNULL(uint16_t opcode)
+void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     fprintf(stderr, "[WARNING] Unknown opcode %#X at %#X\n", opcode, PC);
 }
 
-/*void debug(uint16_t opcode)
+/*void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     printf("\n\nPC: %#X opcode: %#X\n", PC, opcode);
     printf("----------------------------------\n");
@@ -274,11 +230,11 @@ void initialize(cpu *cpuData, MemMaps *mems)
                    (RAM_END-1) * sizeof(mems->ram[0]));
     
     // load fontset
-    strcpy(mems->ram, fonts, (FONTSET_SIZE - 1);
+    memcpy(mems->ram, fonts, (FONTSET_SIZE - 1));
 
     // set some default values
     cpuData->i = 0;
-    cpuData->pc = START_ADDRS;
+    cpuData->pc = PROG_RAM_START;
 
     draw_flag = 0;
 }
@@ -307,36 +263,4 @@ uint load_game(char *game_name, MemMaps *mems)
     }
     
     return bread;
-}
-
-// call our opcodes according to the function pointers
-void msbis0(uint16_t opcode)
-{
-    if (opcode)
-    {
-        uint16_t index = offset4(opcode);
-        (*zeroop[index]) (opcode);
-    }
-}
-
-void msbis8(uint16_t opcode)
-{
-    uint16_t index = offset4(opcode);
-    (*eightop[index]) (opcode);
-}
-
-void msbise(uint16_t opcode) 
-{
-    uint16_t index = offset3(opcode);
-    (*e_op[index]) (opcode);
-}
-
-void msbisf(uint16_t opcode)
-{
-    uint16_t index = offset4(opcode);
-    if (index == 0x5) {
-        index = offset3(opcode);
-    }
-
-    (*special[index]) (opcode);
 }

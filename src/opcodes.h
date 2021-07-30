@@ -7,6 +7,12 @@
 
 #include "chip8.h"
 
+
+#define offset1(opcode) ((opcode & 0xF000) >> 12)
+#define offset2(opcode) ((opcode & 0x0F00) >> 8)
+#define offset3(opcode) ((opcode & 0x00F0) >> 4)
+#define offset4(opcode) ((opcode & 0x000F))
+
 void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
 //******************************************************************************
@@ -154,6 +160,9 @@ void msbise(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 // 4th offset of opcode is index if the 4th offset is not 
 // 0X5, if it's 0X5 then the 3rd offset is the index
 void msbisf(uint16_t opcode, cpu *cpuData, MemMaps *mem);
+
+// in case opcode is unknown
+void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
 void (*zeroop[15]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
 void (*eightop[15]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
