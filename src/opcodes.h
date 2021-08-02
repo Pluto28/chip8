@@ -7,7 +7,6 @@
 
 #include "chip8.h"
 
-
 #define offset1(opcode) ((opcode & 0xF000) >> 12)
 #define offset2(opcode) ((opcode & 0x0F00) >> 8)
 #define offset3(opcode) ((opcode & 0x00F0) >> 4)

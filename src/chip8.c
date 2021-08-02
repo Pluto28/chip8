@@ -12,7 +12,7 @@
 #include "opcodes.h"
 #include "graphics.h"
 
-#define rram(addr) (ram[addr])
+#define rram(addr, maps) (maps->ram[addr])
 #define wram(addr, val) (ram[addr] = val)
 
 #define offset1(opcode) ((opcode & 0xF000) >> 12)
@@ -65,8 +65,9 @@ int main(int argc, char *argv[])
         // open game and load it in memory
         game_size = load_game(argv[argc-1], mems);
 
+	char *game_name = argv[1];
         // start window using sdl 
-        init_win(&argv[argc-1], 1);
+        init_win(game_name, 1);
 
         // start cpu emulation
         emulate(game_size, cpuData, mems);
@@ -88,10 +89,6 @@ uint8_t randnum()
     return number;
 }
 
-void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem)
-{
-    fprintf(stderr, "[WARNING] Unknown opcode %#X at %#X\n", opcode, PC);
-}
 
 /*void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
@@ -124,13 +121,6 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
         set_keys(memoryMaps->keys);
 
         cycle();
-
-        // render to screen if draw_flag is set to 1
-        if (draw_flag) {
-            // TODO: call drawing function
-
-            draw_flag = 0;
-        }
         
         cpu_tick(cpuData, &timersClock);
     }
