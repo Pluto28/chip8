@@ -66,6 +66,7 @@ uint8_t randnum();
 // fetch 2 contigous bytes in memory, starting at pc, and then adds 2 to pc
 uint16_t fetch(uint8_t *ram, uint16_t *pc);
 
+
 // subtract 1 from ST and DT
 void timers_tick(cpu *cpuData, struct timespec *timersClock);
 

@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         initialize(&cpuData, &mems);
 
         // open game and load it in memory
-        game_size = load_game(argv[argc-1], mems);
+        game_size = load_game(argv[argc-1], &mems);
 
 	    char *game_name = argv[1];
         // start window using sdl 
@@ -112,7 +112,7 @@ uint8_t randnum()
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
     
-
+    // start time is the time at which the executing cycle was started
     struct timespec startTime, timersClock;
     clock_gettime(CLOCK_MONOTONIC, &timersClock);
 
@@ -121,13 +121,14 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
         clock_gettime(CLOCK_MONOTONIC, &startTime);
         set_keys(memoryMaps->keys);
 
-        cycle();
+        fetch(memoryMaps->ram, &cpuData->pc);
         
+        clock_handler(&startTime);
         cpu_tick(cpuData, &timersClock);
     }
 }
 
-void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
+void clock_handler(struct timespec *startTime)
 {
 
     
@@ -149,7 +150,7 @@ void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
     // end the function
     if (CycleExec_ns < CLOCK_HZ_NS) {
         struct timespec sleeptime;
-        sleeptime.tv_nsec = cycle_ns - CycleExec_ns;
+        sleeptime.tv_nsec = CLOCK_HZ_NS - CycleExec_ns;
         sleeptime.tv_sec = 0;
 
         if(clock_nanosleep(CLOCK_MONOTONIC, 0, &sleeptime, NULL) == -1) {
@@ -160,13 +161,14 @@ void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
 
 void cpu_tick(cpu *cpuData, struct timespec *timersClock)
 {
-    // TODO: store this value somewhere else, since it can just be set 
-    // at the start of the program and never more
-
 
     struct timespec nowtime;
     clock_gettime(CLOCK_MONOTONIC, &nowtime);
 
+    // get the difference between the last update of the clocks
+    // and now, and if the difference is bigger or equal to the 
+    // delay between clock updates, we update the clocks and the 
+    // timer
     long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
     if (diffNs >= TIMERS_HZ_NS) {
         
@@ -183,17 +185,18 @@ void cpu_tick(cpu *cpuData, struct timespec *timersClock)
     }
 }
 
-// TODO: i don't think we need this, maybe pass everything here to the emulate
-// function
-void cycle(cpu *cpuData)
+uint16_t fetch(uint8_t *ram, uint16_t *pc)
 {
     uint16_t opcode;
-    opcode = (rram(cpuData->pc) << 8) | rram((cpuData->pc) + 1);
-    (*generalop[offset1(opcode)]) (opcode);
-    
-    (cpuData->pc) += 2;
-}
 
+    // get the glorious opcode representing the function to perform in 
+    // binary
+    opcode = (ram[*pc] << 8) | ram[*pc + 1];
+
+    *pc += 2;
+
+    return opcode;
+}
 
 void initialize(cpu *cpuData, MemMaps *mems)
 {
