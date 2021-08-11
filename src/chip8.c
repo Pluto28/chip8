@@ -12,17 +12,90 @@
 #include "opcodes.h"
 #include "graphics.h"
 
-#define rram(addr, maps) (maps->ram[addr])
-#define wram(addr, val) (ram[addr] = val)
-
-#define offset1(opcode) ((opcode & 0xF000) >> 12)
-#define offset2(opcode) ((opcode & 0x0F00) >> 8)
-#define offset3(opcode) ((opcode & 0x00F0) >> 4)
-#define offset4(opcode) ((opcode & 0x000F))
-
 //******************************************************************************
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
 //******************************************************************************
+
+const void (*zeroop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, ret
+};
+
+// Handle opcodes starting with 0x8
+const void (*eightop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
+{
+    setvxtovy, vxorvy, vxandvy, vxxorvy, 
+    vxaddvy, vxsubvy, shr, 
+    vysubvx, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, 
+    shl
+};
+
+// Handle opcodes starting with 0xE
+const void (*e_op[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
+{
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, skipifdown, skipnotdown
+};
+
+// Handle opcodes starting with 0xF
+const void (*special[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
+    reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
+    vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx, cpuNULL
+
+};
+
+//  The array of pointers to instructions holds pointers to instructions that 
+// will be used for calling our implementation of the opcodes for the emulator,
+// and call some function in case the first msb nibble(4 bits) isn't
+// unique to a specific opcode and need more handling, then the function
+// handles it and call other arrays of pointers to functions
+const void (*generalop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    msbis0, jump, call, se, sne, 
+    svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
+    itoa, jmpaddv0, vxandrand, draw, msbise, 
+    msbisf
+};
+
+// call our opcodes according to the function pointers
+void msbis0(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    if (opcode)
+    {
+        uint16_t index = offset4(opcode);
+        (*zeroop[index]) (opcode, cpuData, mem);
+    }
+}
+
+void msbis8(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    uint16_t index = offset4(opcode);
+    (*eightop[index]) (opcode, cpuData, mem);
+}
+
+void msbise(uint16_t opcode, cpu *cpuData, MemMaps *mem) 
+{
+    uint16_t index = offset3(opcode);
+    (*e_op[index]) (opcode, cpuData, mem);
+}
+
+void msbisf(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    uint16_t index = offset4(opcode);
+    if (index == 0x5) {
+        index = offset3(opcode);
+    }
+
+    (*special[index]) (opcode, cpuData, mem);
+}
+
+//-----------------------------------------------------------------------------
 
 // fonts
 static uint8_t fonts[80] = {
@@ -68,7 +141,7 @@ int main(int argc, char *argv[])
 
 	    char *game_name = argv[1];
         // start window using sdl 
-        init_win(game_name, 1);
+        init_win(game_name, WINDOW_SCALLING);
 
         // start cpu emulation
         emulate(game_size, &cpuData, &mems);
@@ -111,7 +184,8 @@ uint8_t randnum()
 // TODO: refactor code to be more efficient
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
-    
+    uint16_t opcode;
+
     // start time is the time at which the executing cycle was started
     struct timespec startTime, timersClock;
     clock_gettime(CLOCK_MONOTONIC, &timersClock);
@@ -121,10 +195,13 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
         clock_gettime(CLOCK_MONOTONIC, &startTime);
         set_keys(memoryMaps->keys);
 
-        fetch(memoryMaps->ram, &cpuData->pc);
+        opcode = fetch(memoryMaps->ram, &cpuData->pc);
+
+        // execute opcode
+        (generalop[(opcode & 0xF000) >> 12]) (opcode, cpuData, memoryMaps);
         
         clock_handler(&startTime);
-        cpu_tick(cpuData, &timersClock);
+        timers_tick(cpuData, &timersClock);
     }
 }
 
@@ -159,7 +236,7 @@ void clock_handler(struct timespec *startTime)
     }
 }
 
-void cpu_tick(cpu *cpuData, struct timespec *timersClock)
+void timers_tick(cpu *cpuData, struct timespec *timersClock)
 {
 
     struct timespec nowtime;
