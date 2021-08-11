@@ -78,9 +78,8 @@ struct WindowDrawData
 // Store colors to be used when drawing pixels or 
 
 // main sdl structures used by program
-SDL_Window *ScreenWindow;
-SDL_Renderer *ScreenRenderer;
-SDL_Surface *WindowSurface;
+static SDL_Window *ScreenWindow = NULL;
+static SDL_Renderer *ScreenRenderer = NULL;
 
 
 void init_win(char *game_name, uint8_t scale_factor)
@@ -93,12 +92,12 @@ void init_win(char *game_name, uint8_t scale_factor)
     } 
     else
     {
-        ScreenWindow = SDL_CreateWindow(*game_name,
+        ScreenWindow = SDL_CreateWindow( game_name,
                                          SDL_WINDOWPOS_CENTERED,
                                          SDL_WINDOWPOS_CENTERED,
                                          WINDOW_WIDTH * scale_factor, 
                                          WINDOW_HEIGHT * scale_factor,
-                                         0);
+                                         SDL_WINDOW_SHOWN);
 
         if (ScreenWindow == NULL) {
             fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
@@ -110,16 +109,6 @@ void init_win(char *game_name, uint8_t scale_factor)
 
         if (ScreenRenderer == NULL) {
             fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
-        }
-        
-        WindowSurface = SDL_GetWindowSurface(ScreenWindow);
-
-        if (WindowSurface == NULL) {
-            fprintf(stderr, "Could not grab surface: %s\n", SDL_GetError());
-        }
-
-        if (SDL_SetSurfaceRLE(WindowSurface, 1) == NULL) {
-            fprintf(stderr, "Failed setting surface RLE: %s", SDL_GetError());
         }
     }
 }
@@ -134,69 +123,73 @@ void clean_screen()
 }
 
 // TODO: add error checking
-void update_window(uint8_t **screen_map, uint8_t ScaleFactor)
+void update_window(MemMaps *mem)
 {
-    uint32_t BgRGBA = SDL_MapRGBA(WindowSurface->format,
-                                   bg[0], bg[1], bg[2], bg[3]);
+    
+    // create texture that will hold the pixels to the screen
+    SDL_Texture *ChipTexture = SDL_CreateTexture(ScreenRenderer,
+                                                 SDL_PIXELFORMAT_RGBA32,
+                                                 SDL_TEXTUREACCESS_STREAMING,
+                                                 WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    uint32_t SpritesRGBA = SDL_MapRGBA(WindowSurface->format,
-                                       sprites[0], sprites[1],
-                                       sprites[2], sprites[3]);
+    if (ChipTexture == NULL) {
+        fprintf(stderr, "Couldn't create texture from renderer: %s",
+                SDL_GetError());
+    }
 
-    // This is the surface that will store the memory map for the emulator 
-    // screen
-    SDL_Surface *ChipSurface;
-    ChipSurface = SDL_CreateRGBSurface(0, 
-                                       WindowSurface->w / ScaleFactor,
-                                       WindowSurface->h / ScaleFactor,
-                                       32,
-                                       0, 0, 0, 0); 
+    //--------------------------------------------------------------------------
+    // get our texture format and map the rgba colors to it
+    uint32_t pixelformat;
+    if (SDL_QueryTexture(ChipTexture, &pixelformat, NULL, NULL, NULL) == -1) {
+        fprintf(stderr, "Couldn't querry texture format: %s", SDL_GetError());
+    }
 
-    // 
-    SDL_LockSurface(WindowSurface);
-    SDL_LockSurface(ChipSurface);
+    SDL_PixelFormat *format = SDL_AllocFormat(pixelformat);
+    if (format == NULL) {
+        fprintf(stderr, "Couldn't allocate format: %s", SDL_GetError());
+    }
+
+    uint32_t spriteRGBA = SDL_MapRGBA(format, 
+                                   sprites[0], sprites[1],
+                                   sprites[2], sprites[3]);
+
+
+    uint32_t bgRGBA = SDL_MapRGBA(format, 
+                                   bg[0], bg[1],
+                                   bg[2], bg[3]);
+
+    //--------------------------------------------------------------------------
 
     int HeightIndex, WidthIndex;
     uint32_t SurfaceIndex;       // which pixel to access
 
-    for(HeightIndex = 0; HeightIndex <= (WindowSurface->h); ++HeightIndex)
+    // unlock texture so we can manipulate its pixels
+    uint32_t *pixels;
+    int pitch;
+    SDL_LockTexture(ChipTexture, NULL, (void **) &pixels, &pitch);
+
+    // iterate the entire screen array, updates the ChipTexture with 
+    // the new frame, then unlocks it and effectivates the changes
+    for(HeightIndex = 0; HeightIndex < WINDOW_HEIGHT; ++HeightIndex)
     {
-        for(WidthIndex = 0; WidthIndex <= (WindowSurface->pitch); ++WidthIndex)
+        for(WidthIndex = 0; WidthIndex < WINDOW_WIDTH; ++WidthIndex)
         {
-            // TODO: this should be very inefficient, change it if needed(in
-            // case it takes too much time to execute) 
-            SurfaceIndex = ((ChipSurface->pitch) * HeightIndex) + WidthIndex;
-            // if pixel is set to 1, then the color is for sprites,
-            // and if 0, the color is the background color
-            if (screen_map[HeightIndex][WidthIndex]) {
-                SDL_memset4(ChipSurface->pixels + SurfaceIndex,
-                            SpritesRGBA, 1);
+            // set the texture value to a RGBA pixel, according to the
+            // memory map that stores the memory map of our screen
+            if (mem->screen[HeightIndex][WidthIndex]) {
+                pixels[(WINDOW_WIDTH * HeightIndex) + WidthIndex] = spriteRGBA;
             } else {
-                SDL_memset4(ChipSurface->pixels + SurfaceIndex,
-                            BgRGBA, 1);
+                pixels[(WINDOW_WIDTH * HeightIndex) + WidthIndex] = bgRGBA;
             }
         }
     }
+    SDL_UnlockTexture(ChipTexture);
 
-    // stretch WindowSurface
-    SDL_Rect StretchRect;
-    StretchRect.h = WindowSurface->h;
-    StretchRect.w = WindowSurface->w;
-    StretchRect.x = 0;
-    StretchRect.y = 0;
-    SDL_BlitScaled(ChipSurface, NULL, WindowSurface, &StretchRect);
-
-    // copy the blitted surface to a texture and then render the texture
-    SDL_Texture *TextureToRender;
-    TextureToRender = SDL_CreateTextureFromSurface(ScreenRenderer, WindowSurface);
-    SDL_RenderCopy(ScreenRenderer, TextureToRender, NULL, NULL);
+    SDL_RenderSetScale(ScreenRenderer, WINDOW_SCALLING, WINDOW_SCALLING);
+    SDL_RenderCopy(ScreenRenderer, ChipTexture, NULL, NULL);
     SDL_RenderPresent(ScreenRenderer);
-
-    SDL_UnlockSurface(ChipSurface);
-    SDL_UnlockSurface(WindowSurface);
-
-    SDL_FreeSurface(ChipSurface);
-    SDL_DestroyTexture(TextureToRender);
+    
+    SDL_DestroyTexture(ChipTexture);
 }
 
 //******************************************************************************
@@ -243,6 +236,7 @@ uint8_t set_keys(uint8_t *keys)
     }
 }
 
+// TODO: rewrite
 uint8_t waitkey()
 {
     fprintf(stdout, "\nWaiting for key\n");
@@ -260,18 +254,15 @@ uint8_t waitkey()
             exit( 0 );
         }
 
-        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
-        {
+        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
             key = keymap(event.key.keysym.sym);
 
             // break out of loop if key is in the expected range
-            if (key >= 0 && key <= 15) 
-            {
+            if (key >= 0 && key <= 15) {
                 break;
             }
-        }
-        else 
-        {
+
+        } else {
             continue;
         }
     }
@@ -333,5 +324,6 @@ uint8_t keymap(uint key)
             key = KEYMAP_Z;
             break;
     }
+
     return key;
 }

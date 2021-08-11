@@ -1,7 +1,8 @@
 /* 
  * Declaration of functions to execute the respective opcodes
  * */
-#pragma once
+#ifndef OPCODES_H
+#define OPCODES_H
 
 #include <stdint.h>
 
@@ -68,17 +69,17 @@ void vxaddvy(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 // and 1 when there isn't. 8XY5
 void vxsubvy(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
-// Stores the least significant bit of VX in VF and then shifts
-// VX to the right by 1. 8XY6
-void lsb_vx_in_vf_r(uint16_t opcode, cpu *cpuData, MemMaps *mem);
+// Shift Logical Right. Stores the least significant bit of VX in VF and then
+// shifts VX to the right by 1. 8XY6
+void shr(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when
 // there isn't. 8XY7
 void vysubvx(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
-// Stores the most significant bit of VX in VF and then shifts
-// VX to the left by 1. 8XYE
-void svflsl(uint16_t opcode, cpu *cpuData, MemMaps *mem);
+// Shift Logical Left. Stores the most significant bit of VX in VF and then
+// shifts VX to the left by 1. 8XYE
+void shl(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
 // Skips the next instruction if VX doesn't equal VY. 9XY0
 void next_if_vx_not_vy(uint16_t opcode, cpu *cpuData, MemMaps *mem);
@@ -160,11 +161,60 @@ void msbise(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 // 0X5, if it's 0X5 then the 3rd offset is the index
 void msbisf(uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
-// in case opcode is unknown
-void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem);
+/*static void (*zeroop[15])    (uint16_t opcode, cpu *cpuData, MemMaps *mem);
+static void (*eightop[15])   (uint16_t opcode, cpu *cpuData, MemMaps *mem);
+static void (*e_op[11])      (uint16_t opcode, cpu *cpuData, MemMaps *mem);
+static void (*special[16])   (uint16_t opcode, cpu *cpuData, MemMaps *mem);
+static void (*generalop[16]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
 
-void (*zeroop[15]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
-void (*eightop[15]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
-void (*e_op[11]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
-void (*special[16]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
-void (*generalop[16]) (uint16_t opcode, cpu *cpuData, MemMaps *mem);
+
+// Handle opcodes starting with 0x0
+const void (*zeroop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, ret
+};
+
+// Handle opcodes starting with 0x8
+const void (*eightop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
+{
+    setvxtovy, vxorvy, vxandvy, vxxorvy, 
+    vxaddvy, vxsubvy, shr, 
+    vysubvx, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, 
+    shl
+};
+
+// Handle opcodes starting with 0xE
+const void (*e_op[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
+{
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
+    cpuNULL, skipifdown, skipnotdown
+};
+
+// Handle opcodes starting with 0xF
+const void (*special[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
+    reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
+    vx_to_key, cpuNULL, cpuNULL, cpuNULL, iaddvx, cpuNULL
+
+};
+
+//  The array of pointers to instructions holds pointers to instructions that 
+// will be used for calling our implementation of the opcodes for the emulator,
+// and call some function in case the first msb nibble(4 bits) isn't
+// unique to a specific opcode and need more handling, then the function
+// handles it and call other arrays of pointers to functions
+const void (*generalop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
+{
+    msbis0, jump, call, se, sne, 
+    svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
+    itoa, jmpaddv0, vxandrand, draw, msbise, 
+    msbisf
+};*/
+
+
+#endif

@@ -1,6 +1,10 @@
+#ifndef GRAPHICS_H
+#define GRAPHICS_H
 
 #include <stdint.h>
 #include <SDL2/SDL.h>
+
+#include "chip8.h"
 
 
 // start SDL2
@@ -13,7 +17,7 @@ void init_win(char *game_name, uint8_t scale_factor);
  * step 3: we pass the data from the texture to the renderer and then render
  * it
  */ 
-void update_window();
+void update_window(MemMaps *mem);
 
 // render 1 byte of data at the specified x and y positions
 void render(uint8_t data, uint16_t x, uint16_t y);
@@ -22,10 +26,12 @@ void render(uint8_t data, uint16_t x, uint16_t y);
 void clean_screen();
 
 // wait for key and return it when found
-uint8_t waitkey(uint8_t **screen_map, uint8_t ScaleFactor);
+uint8_t waitkey();
 
 // handle events and return the pressed key, key is KEY_NULL(16) if 
 // there are no down keys
 uint8_t set_keys(uint8_t *keys);
 
 uint8_t keymap(uint key);
+
+#endif

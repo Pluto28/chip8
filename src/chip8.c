@@ -54,23 +54,24 @@ int main(int argc, char *argv[])
 {
     uint game_size;
 
-    cpu *cpuData;
-    MemMaps *mems;
     
     // initialize interpreter and load game into memory
     if (argc == 2) {
+        cpu cpuData;
+        MemMaps mems;
+        
         // initialize general variables and arrays to the desired values
-        initialize(cpuData, mems);
+        initialize(&cpuData, &mems);
 
         // open game and load it in memory
         game_size = load_game(argv[argc-1], mems);
 
-	char *game_name = argv[1];
+	    char *game_name = argv[1];
         // start window using sdl 
         init_win(game_name, 1);
 
         // start cpu emulation
-        emulate(game_size, cpuData, mems);
+        emulate(game_size, &cpuData, &mems);
     } else {
         fprintf(stderr, "usage: ./chip8 <game>\n");
         exit(1);
@@ -128,11 +129,7 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 
 void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
 {
-    // TODO: we should probably move this to a structure encapsulating all 
-    // details that are emulation specific
 
-    // amount of ns that executing 1 cycle takes
-    long cycle_ns = 1000000000 / CLOCK_HZ;
     
     // TODO: we should check if the resolution is high enough to handle 
     // the amount of nanoseconds that one cycle takes, and if not, we should 
@@ -150,7 +147,7 @@ void clock_handler(struct timespec *startTime, struct timespec *MonotonicRes)
     // in case the cycle took more than or the exact amount of time
     // it should take to execute, we don't need to sleep and can just 
     // end the function
-    if (CycleExec_ns < cycle_ns) {
+    if (CycleExec_ns < CLOCK_HZ_NS) {
         struct timespec sleeptime;
         sleeptime.tv_nsec = cycle_ns - CycleExec_ns;
         sleeptime.tv_sec = 0;
@@ -166,14 +163,12 @@ void cpu_tick(cpu *cpuData, struct timespec *timersClock)
     // TODO: store this value somewhere else, since it can just be set 
     // at the start of the program and never more
 
-    // the time in ns that should pass between each clock update
-    long clock_ns = 1000000000 / 60;
 
     struct timespec nowtime;
     clock_gettime(CLOCK_MONOTONIC, &nowtime);
 
     long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
-    if (diffNs >= clock_ns) {
+    if (diffNs >= TIMERS_HZ_NS) {
         
         if (cpuData->dt > 0) {
             cpuData->dt -= 1;
@@ -202,18 +197,7 @@ void cycle(cpu *cpuData)
 
 void initialize(cpu *cpuData, MemMaps *mems)
 {
-
-    clean_screen();
-
-    cpuData = (cpu *)     malloc(sizeof(cpu));
-    if (cpuData == NULL) {
-        perror("chip8: ");
-    }
-
-    mems = (MemMaps *) malloc(sizeof(MemMaps));
-    if (mems == NULL) {
-        perror("chip8: ");
-    }
+    explicit_bzero(mems->screen, WINDOW_HEIGHT * WINDOW_WIDTH);
 
     // Can you smell that? Yes, my friend, that is the smell of sanitizer
     explicit_bzero(mems->ram, 
@@ -225,8 +209,8 @@ void initialize(cpu *cpuData, MemMaps *mems)
     // set some default values
     cpuData->i = 0;
     cpuData->pc = PROG_RAM_START;
-
-    draw_flag = 0;
+    cpuData->st = 60;
+    cpuData->dt = 60;
 }
 
 uint load_game(char *game_name, MemMaps *mems)
