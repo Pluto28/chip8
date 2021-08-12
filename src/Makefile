@@ -11,7 +11,7 @@ cc_options = -O2
 objects = graphics.o chip8.o opcodes.o
 
 chip8: $(objects)
-	$(CC) $(cc_options) $(linker_flags) -o chip8
+	$(CC) $(cc_options) $(linker_flags) $(objects) -o chip8
 
 graphics.o: graphics.c graphics.h chip8.h
 	$(CC) $(cc_options) -c graphics.c
