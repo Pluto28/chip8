@@ -2,11 +2,11 @@
  * Graphics functions that don't need opcodes to be executed
  * */
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 #include "graphics.h"
 #include "chip8.h"
