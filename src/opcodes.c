@@ -148,8 +148,7 @@ void vysubvx(uint16_t opcode, cpu *cpuData, MemMaps *mem)
     uint8_t *vy = &cpuData->regs[offset3(opcode)];
 
     // If there is a borrow, that is, if vx is bigger than vy for 
-    // (vy - vx), then we set the register vf to NOT(borrow).
-    //
+    // (vy - vx), then we set the register vf to NOT(borrow). 
     // If there is a borrow, vf is set to 0.
     // If there isn't a borrow, vf is set to 1
     if (*vx > *vy) {
@@ -219,7 +218,7 @@ void vxandrand(uint16_t opcode, cpu *cpuData, MemMaps *mem)
     uint8_t mask = opcode & 0x00ff;  // mask value
     uint8_t rand = randnum();                 // random number
 
-    cpuData->regs[x] = mask & rand;
+    cpuData->regs[x] = rand & mask;
 }
 
 
@@ -328,7 +327,7 @@ void set_dt(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     uint8_t vx = cpuData->regs[offset2(opcode)];
 
-    cpuData->dt = cpuData->regs[vx];
+    cpuData->dt = vx;
 }
 
 void vx_to_dt(uint16_t opcode, cpu *cpuData, MemMaps *mem)
@@ -453,16 +452,16 @@ void draw(uint16_t opcode, cpu *cpuData, MemMaps *mem)
              * the screen on memory gives us the address of the pixel to 
              * perform the operation upon
              */
-            screen_pixel = &(mem->screen[(bytei + y) % (WINDOW_HEIGHT - 1)]
-                                        [(biti + x)  % (WINDOW_WIDTH - 1)]);
-
-            if (*screen_pixel && pixel) 
-                cpuData->regs[0xf] = 1;
+             screen_pixel = &(mem->screen[(bytei + y) % (WINDOW_HEIGHT)]
+                                         [(biti + x)  % (WINDOW_WIDTH)]);
+            
+	     if (*screen_pixel && pixel) 
+                   cpuData->regs[0xf] = 1;
 
             *screen_pixel ^= pixel;
-            printf("%i", *screen_pixel);
+            //printf("%i", *screen_pixel);
         }
-        putchar('\n');
+        //putchar('\n');
     }
 
     if (cpuData->regs[0xf])
@@ -528,7 +527,7 @@ void reg_dump(uint16_t opcode, cpu *cpuData, MemMaps *mem)
     }
     
     // TODO: toggle this behavior using command-line options
-    //cpuData->i = cpuData->i + vx + 1;
+    // cpuData->i = cpuData->i + cpuData->regs[x] + 1;
 }
 
 void reg_load(uint16_t opcode, cpu *cpuData, MemMaps *mem)
@@ -543,7 +542,7 @@ void reg_load(uint16_t opcode, cpu *cpuData, MemMaps *mem)
     }
 
     // TODO: toggle this behavior using command-line options
-    //cpuData->i = cpuData->i + vx + 1;
+    // cpuData->i = cpuData->i + cpuData->regs[x] + 1;
 }
 
 void cpuNULL(uint16_t opcode, cpu *cpuData, MemMaps *mem)

@@ -5,7 +5,7 @@ CC = gcc
 linker_flags = $(shell sdl2-config --libs)
 
 # compiler options
-cc_options = -O0
+cc_options = 
 
 cc_options += $(shell sdl2-config --cflags)
 
@@ -16,13 +16,13 @@ chip8: $(objects)
 	$(CC) -o chip8 $(objects) $(cc_options) $(linker_flags) 
 
 graphics.o: graphics.c graphics.h chip8.h
-	$(CC) $(cc_options) -c graphics.c
+	$(CC) -c graphics.c $(cc_options)
 
 chip8.o: chip8.c graphics.h chip8.h
-	$(CC) $(cc_options) -c chip8.c
+	$(CC) -c chip8.c $(cc_options)
 
 opcodes.o: opcodes.c chip8.h opcodes.h graphics.h
-	$(CC) $(cc_options) -c opcodes.c
+	$(CC) -c opcodes.c $(cc_options) 
 
 clean: 
 	$(RM) $(objects)

@@ -109,7 +109,10 @@ void init_win(char *game_name, uint8_t scale_factor)
 
         if (ScreenRenderer == NULL) {
             fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
-        }
+    	}
+   
+	
+        SDL_RenderSetScale(ScreenRenderer, scale_factor, scale_factor);
     }
 }
 
@@ -185,7 +188,6 @@ void update_window(MemMaps *mem)
     }
     SDL_UnlockTexture(ChipTexture);
 
-    SDL_RenderSetScale(ScreenRenderer, WINDOW_SCALLING, WINDOW_SCALLING);
     SDL_RenderCopy(ScreenRenderer, ChipTexture, NULL, NULL);
     SDL_RenderPresent(ScreenRenderer);
     

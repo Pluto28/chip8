@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,22 +164,23 @@ uint8_t randnum()
 }
 
 
-/*void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
-    printf("\n\nPC: %#X opcode: %#X\n", PC, opcode);
-    printf("----------------------------------\n");
+       
+    printf("opcode: %.4x pc: %.2X I: %.4X SP: %.4X DT: %.2i ST: %.2i\n", 
+            opcode, cpuData->pc, cpuData->i, cpuData->sp, cpuData->dt, cpuData->st);
 
-    printf("regs:\n");
-
-    uint8_t in;
-    for (in = 0; in < sizeof(reg); ++in)
+    uint index = 0;
+    printf("Stack dump     | Register dump \n");
+    while (index < STACK_SIZE)
     {
-        printf("V%X: %#X    Key%X: %#X\n", in, reg[in],\
-                in, keys[in]);
+        printf("stack %.2X: 0x%.3X  |  R%.2X: %.4X\n", 
+		index, cpuData->stack[index], index, cpuData->regs[index]);
+	++index;
     }
 
-    printf("\n\nSP: %X I: %X", SP, I);
-}*/
+    printf("\n\n\n");
+}
 
 // TODO: refactor code to be more efficient
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
@@ -197,10 +197,11 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
         set_keys(memoryMaps->keys);
 
         opcode = fetch(memoryMaps->ram, &cpuData->pc);
-
+	
+	debug(opcode, cpuData, memoryMaps);
         // execute opcode
         (generalop[(opcode & 0xF000) >> 12]) (opcode, cpuData, memoryMaps);
-        
+
         clock_handler(&startTime);
         timers_tick(cpuData, &timersClock);
     }
@@ -209,7 +210,6 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 void clock_handler(struct timespec *startTime)
 {
 
-    
     // TODO: we should check if the resolution is high enough to handle 
     // the amount of nanoseconds that one cycle takes, and if not, we should 
     // increase the amount of cycles to execute before calling this function
@@ -226,7 +226,7 @@ void clock_handler(struct timespec *startTime)
     // in case the cycle took more than or the exact amount of time
     // it should take to execute, we don't need to sleep and can just 
     // end the function
-    if (CycleExec_ns < CLOCK_HZ_NS) {
+    if (CycleExec_ns > 0 && CycleExec_ns < CLOCK_HZ_NS) {
         struct timespec sleeptime;
         sleeptime.tv_nsec = CLOCK_HZ_NS - CycleExec_ns;
         sleeptime.tv_sec = 0;
@@ -237,6 +237,8 @@ void clock_handler(struct timespec *startTime)
     }
 }
 
+// TODO: fix this piece of code, it is not running as expected, that is, the
+// timers are not reaching 0
 void timers_tick(cpu *cpuData, struct timespec *timersClock)
 {
 
@@ -248,13 +250,15 @@ void timers_tick(cpu *cpuData, struct timespec *timersClock)
     // delay between clock updates, we update the clocks and the 
     // timer
     long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
-    if (diffNs >= TIMERS_HZ_NS) {
-        
-        if (cpuData->dt > 0) {
+    
+    printf("Clock now: %li clock before: %li  clock diff: %li diff needed: %li\n",
+            nowtime.tv_sec, timersClock->tv_nsec, timersClock->tv_nsec - nowtime.tv_nsec, TIMERS_HZ_NS);
+    if (diffNs > 0 && diffNs >= TIMERS_HZ_NS) {
+        if (cpuData->dt != 0) {
             cpuData->dt -= 1;
         }
 
-        if (cpuData->st > 0) {
+        if (cpuData->st != 0) {
             // TODO: call function to play that good ol jazz.
             cpuData->st -= 1;
         }
@@ -283,6 +287,8 @@ void initialize(cpu *cpuData, MemMaps *mems)
     // Can you smell that? Yes, my friend, that is the smell of sanitizer
     explicit_bzero(mems->ram, 
                    (RAM_END-1) * sizeof(mems->ram[0]));
+    
+    explicit_bzero(cpuData->stack, STACK_SIZE * sizeof(cpuData->stack[0]));
     
     // load fontset
     memcpy(mems->ram, fonts, (FONTSET_SIZE - 1));

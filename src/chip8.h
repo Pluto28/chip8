@@ -17,7 +17,7 @@
 #define FONTSET_SIZE 0x50
 #define FONTSET_BYTES_PER_CHAR 5
 
-#define CLOCK_HZ 500
+#define CLOCK_HZ 750 
 // amount of ns that executing 1 cycle takes
 #define CLOCK_HZ_NS ((double)1000000000.0 / (double)CLOCK_HZ)
 
