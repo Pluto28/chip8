@@ -228,6 +228,7 @@ void jump(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
 
     uint16_t addr = opcode & 0x0fff;
+    printf("jumping to: %X\n\n", addr);
 
     // since we add +2 to the cpuData->pc register at the game_loop, 
     // this would jump the instruction at addr before it being executed, so
@@ -326,7 +327,8 @@ void next_if_vx_not_vy(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 void set_dt(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     uint8_t vx = cpuData->regs[offset2(opcode)];
-
+    
+    printf("offset 2 is: %i\n\n", offset2(opcode));
     cpuData->dt = vx;
 }
 
@@ -400,12 +402,12 @@ void iaddvx(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 void draw(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     // where to draw and how many bytes
-    uint16_t x = cpuData->regs[offset2(opcode)];
-    uint16_t y = cpuData->regs[offset3(opcode)];
+    uint16_t vx = cpuData->regs[offset2(opcode)];
+    uint16_t vy = cpuData->regs[offset3(opcode)];
 
     // number of rows, in bytes, to write to the screen
     uint8_t rowsb = offset4(opcode);
-    printf("Writing %i bytes of data to (%i, %i)\n", rowsb, x, y);
+    printf("Writing %i bytes of data to (%i, %i)\n", rowsb, vx, vy);
 
     // biti for the index of the bit we are inside the byte, and bytei
     // for how many bytes we have already iterated
@@ -452,8 +454,8 @@ void draw(uint16_t opcode, cpu *cpuData, MemMaps *mem)
              * the screen on memory gives us the address of the pixel to 
              * perform the operation upon
              */
-             screen_pixel = &(mem->screen[(bytei + y) % (WINDOW_HEIGHT)]
-                                         [(biti + x)  % (WINDOW_WIDTH)]);
+             screen_pixel = &(mem->screen[(bytei + vy) % (WINDOW_HEIGHT)]
+                                         [(biti  + vx) % (WINDOW_WIDTH)]);
             
 	     if (*screen_pixel && pixel) 
                    cpuData->regs[0xf] = 1;

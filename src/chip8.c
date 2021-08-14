@@ -174,9 +174,9 @@ void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
     printf("Stack dump     | Register dump \n");
     while (index < STACK_SIZE)
     {
-        printf("stack %.2X: 0x%.3X  |  R%.2X: %.4X\n", 
+        printf("stack %.1X: 0x%.3X  |  R%.1X: %.3X\n", 
 		index, cpuData->stack[index], index, cpuData->regs[index]);
-	++index;
+	    ++index;
     }
 
     printf("\n\n\n");
@@ -198,7 +198,7 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 
         opcode = fetch(memoryMaps->ram, &cpuData->pc);
 	
-	debug(opcode, cpuData, memoryMaps);
+	    debug(opcode, cpuData, memoryMaps);
         // execute opcode
         (generalop[(opcode & 0xF000) >> 12]) (opcode, cpuData, memoryMaps);
 
@@ -209,7 +209,6 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 
 void clock_handler(struct timespec *startTime)
 {
-
     // TODO: we should check if the resolution is high enough to handle 
     // the amount of nanoseconds that one cycle takes, and if not, we should 
     // increase the amount of cycles to execute before calling this function
@@ -217,7 +216,7 @@ void clock_handler(struct timespec *startTime)
 
     // we sleep the difference between the time it takes to execute a cycle in 
     // nanoseconds and the time it took to execute the cycle
-    struct timespec timenow;
+    struct timespec timenow; 
     clock_gettime(CLOCK_MONOTONIC, &timenow);
 
     // Amount of time the cycle took to execute
@@ -237,11 +236,8 @@ void clock_handler(struct timespec *startTime)
     }
 }
 
-// TODO: fix this piece of code, it is not running as expected, that is, the
-// timers are not reaching 0
 void timers_tick(cpu *cpuData, struct timespec *timersClock)
 {
-
     struct timespec nowtime;
     clock_gettime(CLOCK_MONOTONIC, &nowtime);
 
@@ -251,9 +247,13 @@ void timers_tick(cpu *cpuData, struct timespec *timersClock)
     // timer
     long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
     
-    printf("Clock now: %li clock before: %li  clock diff: %li diff needed: %li\n",
-            nowtime.tv_sec, timersClock->tv_nsec, timersClock->tv_nsec - nowtime.tv_nsec, TIMERS_HZ_NS);
-    if (diffNs > 0 && diffNs >= TIMERS_HZ_NS) {
+    // we need the difference in seconds because sometimes one seconds passes
+    // and the timersClock structure wasn't updated, which can create some 
+    // really hairy bugs if just time in nanoseconds was considered
+    long diffS  = nowtime.tv_sec  - timersClock->tv_nsec;
+    
+    if (diffS != 0 || diffNs >= TIMERS_HZ_NS) {
+
         if (cpuData->dt != 0) {
             cpuData->dt -= 1;
         }

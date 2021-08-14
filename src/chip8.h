@@ -17,13 +17,13 @@
 #define FONTSET_SIZE 0x50
 #define FONTSET_BYTES_PER_CHAR 5
 
-#define CLOCK_HZ 750 
+#define CLOCK_HZ 2000
 // amount of ns that executing 1 cycle takes
 #define CLOCK_HZ_NS ((double)1000000000.0 / (double)CLOCK_HZ)
 
 #define TIMERS_HZ 60
 // the time in ns that should pass between each clock update
-#define TIMERS_HZ_NS ((double)1000000000.0 / (double)TIMERS_HZ)
+#define TIMERS_HZ_NS (long)(1000000000.0 / TIMERS_HZ)
 
 typedef struct cpu
 {
