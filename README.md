@@ -30,5 +30,3 @@ Run `make` inside the chip8 directory
    - [ ] terminal based debug probe(a debugger like gdb)
 
    - [ ] Add support for posix compliant command lines options using argv
-
-   - [ ] Rewrite the graphics engine to be more efficient
