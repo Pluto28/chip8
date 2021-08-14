@@ -198,7 +198,7 @@ void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 
         opcode = fetch(memoryMaps->ram, &cpuData->pc);
 	
-	    debug(opcode, cpuData, memoryMaps);
+	    // debug(opcode, cpuData, memoryMaps);
         // execute opcode
         (generalop[(opcode & 0xF000) >> 12]) (opcode, cpuData, memoryMaps);
 
