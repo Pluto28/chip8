@@ -1,25 +1,29 @@
+#ifndef GRAPHICS_H
+#define GRAPHICS_H
 
 #include <stdint.h>
 #include <SDL2/SDL.h>
 
-// graphics related function declaration
+#include "chip8.h"
+
 
 // start SDL2
-void init_win(char *game_name[], int width, int height);
+void init_win(char *game_name, uint8_t scale_factor);
 
-// update surface by using gfx
-void update_gfx(uint16_t columns, uint16_t rows, uint8_t gfx[][columns]);
+/* 
+ * Draw the screen memory map to our screen. There are 3 steps to it:
+ * step 1: first we translate the screen map to a surface SDL2 structure
+ * step 2: on this step, we blit the surface and then convert it to a texture
+ * step 3: we pass the data from the texture to the renderer and then render
+ * it
+ */ 
+void update_window(MemMaps *mem);
 
 // render 1 byte of data at the specified x and y positions
 void render(uint8_t data, uint16_t x, uint16_t y);
 
 // reset screen color
 void clean_screen();
-
-// receives a 2d array and a magnifying factor to be used to magnify the passed
-// array, returning a pointer to a 2d array that contains the magnified data
-uint8_t** magnify(uint16_t h1, uint16_t w1, uint16_t h2, uint16_t w2, uint8_t bitarr[][w1]);
-
 
 // wait for key and return it when found
 uint8_t waitkey();
@@ -29,3 +33,5 @@ uint8_t waitkey();
 uint8_t set_keys(uint8_t *keys);
 
 uint8_t keymap(uint key);
+
+#endif

@@ -6,28 +6,17 @@
 #include <stdint.h>
 #include <sys/random.h>
 #include <unistd.h>
-
-#define __USE_GNU
-#include <sys/time.h>
+#include <time.h>
 
 #include "chip8.h"
 #include "opcodes.h"
 #include "graphics.h"
 
-#define rram(addr) (ram[addr])
-#define wram(addr, val) (ram[addr] = val)
-
-#define offset1(opcode) ((opcode & 0xF000) >> 12)
-#define offset2(opcode) ((opcode & 0x0F00) >> 8)
-#define offset3(opcode) ((opcode & 0x00F0) >> 4)
-#define offset4(opcode) ((opcode & 0x000F))
-
 //******************************************************************************
 // * ARRAYS OF POINTERS TO FUNCTIONS                                           *
 //******************************************************************************
 
-// Handle opcodes starting with 0x0
-void (*zeroop[]) (uint16_t opcode) =
+const void (*zeroop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
 {
     cls, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
@@ -35,17 +24,17 @@ void (*zeroop[]) (uint16_t opcode) =
 };
 
 // Handle opcodes starting with 0x8
-void (*eightop[]) (uint16_t opcode) = 
+const void (*eightop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
 {
     setvxtovy, vxorvy, vxandvy, vxxorvy, 
-    vxaddvy, vxsubvy, lsb_vx_in_vf_r, 
+    vxaddvy, vxsubvy, shr, 
     vysubvx, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, 
-    svflsl
+    shl
 };
 
 // Handle opcodes starting with 0xE
-void (*e_op[]) (uint16_t opcode) = 
+const void (*e_op[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) = 
 {
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
     cpuNULL, cpuNULL, cpuNULL, cpuNULL, 
@@ -53,7 +42,7 @@ void (*e_op[]) (uint16_t opcode) =
 };
 
 // Handle opcodes starting with 0xF
-void (*special[]) (uint16_t opcode) =
+const void (*special[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
 {
     cpuNULL, set_dt, cpuNULL, set_BCD, cpuNULL, 
     reg_dump, reg_load, vx_to_dt, set_st, load_char_addr, 
@@ -61,8 +50,12 @@ void (*special[]) (uint16_t opcode) =
 
 };
 
-// Call other arrays of functions 
-void (*generalop[16]) (uint16_t opcode) =
+//  The array of pointers to instructions holds pointers to instructions that 
+// will be used for calling our implementation of the opcodes for the emulator,
+// and call some function in case the first msb nibble(4 bits) isn't
+// unique to a specific opcode and need more handling, then the function
+// handles it and call other arrays of pointers to functions
+const void (*generalop[]) (uint16_t opcode, cpu *cpuData, MemMaps *mem) =
 {
     msbis0, jump, call, se, sne, 
     svxevy, setvx, addvx, msbis8, next_if_vx_not_vy, 
@@ -70,8 +63,42 @@ void (*generalop[16]) (uint16_t opcode) =
     msbisf
 };
 
+// call our opcodes according to the function pointers
+void msbis0(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    if (opcode)
+    {
+        uint16_t index = offset4(opcode);
+        (*zeroop[index]) (opcode, cpuData, mem);
+    }
+}
+
+void msbis8(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    uint16_t index = offset4(opcode);
+    (*eightop[index]) (opcode, cpuData, mem);
+}
+
+void msbise(uint16_t opcode, cpu *cpuData, MemMaps *mem) 
+{
+    uint16_t index = offset3(opcode);
+    (*e_op[index]) (opcode, cpuData, mem);
+}
+
+void msbisf(uint16_t opcode, cpu *cpuData, MemMaps *mem)
+{
+    uint16_t index = offset4(opcode);
+    if (index == 0x5) {
+        index = offset3(opcode);
+    }
+
+    (*special[index]) (opcode, cpuData, mem);
+}
+
+//-----------------------------------------------------------------------------
+
 // fonts
-uint8_t fonts[80] = {
+static uint8_t fonts[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0,   // 0
     0x20, 0x60, 0x20, 0x20, 0x70,   // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0,   // 2
@@ -100,27 +127,28 @@ int main(int argc, char *argv[])
 {
     uint game_size;
 
-    cpu *cpuData;
-    MemMaps *mems;
     
     // initialize interpreter and load game into memory
     if (argc == 2) {
+        cpu cpuData;
+        MemMaps mems;
+        
         // initialize general variables and arrays to the desired values
-        initialize(cpuData, mems);
+        initialize(&cpuData, &mems);
 
         // open game and load it in memory
-        game_size = load_game(argv[argc-1]);
+        game_size = load_game(argv[argc-1], &mems);
 
+	    char *game_name = argv[1];
         // start window using sdl 
-        init_win(&argv[argc-1],  GFX_ROWS * 10, GFX_COLUMNS * 10);
+        init_win(game_name, WINDOW_SCALLING);
 
         // start cpu emulation
-        emulate(game_size, cpuData, mems);
+        emulate(game_size, &cpuData, &mems);
     } else {
         fprintf(stderr, "usage: ./chip8 <game>\n");
         exit(1);
     }
-
 }
 
 uint8_t randnum()
@@ -135,111 +163,141 @@ uint8_t randnum()
     return number;
 }
 
-void cpuNULL(uint16_t opcode)
+
+void debug(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
-    fprintf(stderr, "[WARNING] Unknown opcode %#X at %#X\n", opcode, PC);
-}
+       
+    printf("opcode: %.4x pc: %.2X I: %.4X SP: %.4X DT: %.2i ST: %.2i\n", 
+            opcode, cpuData->pc, cpuData->i, cpuData->sp, cpuData->dt, cpuData->st);
 
-void debug(uint16_t opcode)
-{
-    printf("\n\nPC: %#X opcode: %#X\n", PC, opcode);
-    printf("----------------------------------\n");
-
-    printf("regs:\n");
-
-    uint8_t in;
-    for (in = 0; in < sizeof(reg); ++in)
+    uint index = 0;
+    printf("Stack dump     | Register dump \n");
+    while (index < STACK_SIZE)
     {
-        printf("V%X: %#X    Key%X: %#X\n", in, reg[in],\
-                in, keys[in]);
+        printf("stack %.1X: 0x%.3X  |  R%.1X: %.3X\n", 
+		index, cpuData->stack[index], index, cpuData->regs[index]);
+	    ++index;
     }
 
-    printf("\n\nSP: %X I: %X", SP, I);
+    printf("\n\n\n");
 }
 
 // TODO: refactor code to be more efficient
 void emulate(uint game_size, cpu *cpuData, MemMaps *memoryMaps)
 {
-    // when the emulation was started
-    struct timeval start_time;
+    uint16_t opcode;
 
-    gettimeofday(&start_time, NULL);
+    // start time is the time at which the executing cycle was started
+    struct timespec startTime, timersClock;
+    clock_gettime(CLOCK_MONOTONIC, &timersClock);
 
-    uint8_t clock;
-
-    for (clock = 0; PC <= (game_size + 0x200); ++clock)
+    for (;(cpuData->pc) <= (game_size + 0x200); )
     {
+        clock_gettime(CLOCK_MONOTONIC, &startTime);
+        set_keys(memoryMaps->keys);
 
-        set_keys(keys);
+        opcode = fetch(memoryMaps->ram, &cpuData->pc);
+	
+	    debug(opcode, cpuData, memoryMaps);
+        // execute opcode
+        (generalop[(opcode & 0xF000) >> 12]) (opcode, cpuData, memoryMaps);
 
-        cycle();
+        clock_handler(&startTime);
+        timers_tick(cpuData, &timersClock);
+    }
+}
 
-        // render to screen if draw_flag is set to 1
-        if (draw_flag) {
-            update_gfx(GFX_COLUMNS, GFX_ROWS, gfx);
+void clock_handler(struct timespec *startTime)
+{
+    // TODO: we should check if the resolution is high enough to handle 
+    // the amount of nanoseconds that one cycle takes, and if not, we should 
+    // increase the amount of cycles to execute before calling this function
+    // (one cycle per call should yield better resolution though)
 
-            draw_flag = 0;
+    // we sleep the difference between the time it takes to execute a cycle in 
+    // nanoseconds and the time it took to execute the cycle
+    struct timespec timenow; 
+    clock_gettime(CLOCK_MONOTONIC, &timenow);
+
+    // Amount of time the cycle took to execute
+    long CycleExec_ns = timenow.tv_nsec - startTime->tv_nsec;
+
+    // in case the cycle took more than or the exact amount of time
+    // it should take to execute, we don't need to sleep and can just 
+    // end the function
+    if (CycleExec_ns > 0 && CycleExec_ns < CLOCK_HZ_NS) {
+        struct timespec sleeptime;
+        sleeptime.tv_nsec = CLOCK_HZ_NS - CycleExec_ns;
+        sleeptime.tv_sec = 0;
+
+        if(clock_nanosleep(CLOCK_MONOTONIC, 0, &sleeptime, NULL) == -1) {
+            perror("chip8: ");
+        }
+    }
+}
+
+void timers_tick(cpu *cpuData, struct timespec *timersClock)
+{
+    struct timespec nowtime;
+    clock_gettime(CLOCK_MONOTONIC, &nowtime);
+
+    // get the difference between the last update of the clocks
+    // and now, and if the difference is bigger or equal to the 
+    // delay between clock updates, we update the clocks and the 
+    // timer
+    long diffNs = nowtime.tv_nsec - timersClock->tv_nsec;
+    
+    // we need the difference in seconds because sometimes one seconds passes
+    // and the timersClock structure wasn't updated, which can create some 
+    // really hairy bugs if just time in nanoseconds was considered
+    long diffS  = nowtime.tv_sec  - timersClock->tv_nsec;
+    
+    if (diffS != 0 || diffNs >= TIMERS_HZ_NS) {
+
+        if (cpuData->dt != 0) {
+            cpuData->dt -= 1;
         }
 
-        
-        cpu_tick(cpuData);
+        if (cpuData->st != 0) {
+            // TODO: call function to play that good ol jazz.
+            cpuData->st -= 1;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, timersClock);
     }
 }
 
-void clock_handler(struct timeval *start_time)
+uint16_t fetch(uint8_t *ram, uint16_t *pc)
 {
-
-    //TODO: rewrite
-    // if the 
-}
-
-void cpu_tick(cpu *cpuData)
-{
-    if (cpuData->dt == 60) {
-        cpuData->dt = 0;
-    } else {
-        (cpuData->dt) += 1;
-    }
-
-    if (cpuData->st == 60) {
-        cpuData->st = 0;
-    } else {
-        (cpuData->st) += 1;
-    }
-}
-
-void cycle()
-{
-
-    // store the opcode to be executed
     uint16_t opcode;
-    // xor 2 subsequent memory locations to get a 2 bytes opcode
-    opcode = (rram(PC) << 8) | rram(PC+1);
-    (*generalop[offset1(opcode)]) (opcode);
-    
-    PC += 2;
 
-    #ifdef DEBUG
-        debug(opcode);
-    #endif
+    // get the glorious opcode representing the function to perform in 
+    // binary
+    opcode = (ram[*pc] << 8) | ram[*pc + 1];
+
+    *pc += 2;
+
+    return opcode;
 }
-
 
 void initialize(cpu *cpuData, MemMaps *mems)
 {
+    explicit_bzero(mems->screen, WINDOW_HEIGHT * WINDOW_WIDTH);
 
-    clean_screen();
-
-    // allocate memory for our structures
-    cpuData = (cpu *)     malloc(sizeof(cpu));
-    mems =    (MemMaps *) malloc(sizeof(MemMaps));
+    // Can you smell that? Yes, my friend, that is the smell of sanitizer
+    explicit_bzero(mems->ram, 
+                   (RAM_END-1) * sizeof(mems->ram[0]));
+    
+    explicit_bzero(cpuData->stack, STACK_SIZE * sizeof(cpuData->stack[0]));
     
     // load fontset
-    strcpy((mems->ram), fonts);
+    memcpy(mems->ram, fonts, (FONTSET_SIZE - 1));
 
-    cpuData->i = 0; 
-    draw_flag = 0;
-    PC = START_ADDRS;
+    // set some default values
+    cpuData->i = 0;
+    cpuData->pc = PROG_RAM_START;
+    cpuData->st = 60;
+    cpuData->dt = 60;
 }
 
 uint load_game(char *game_name, MemMaps *mems)
@@ -252,9 +310,13 @@ uint load_game(char *game_name, MemMaps *mems)
     }
 
 
-    // read at most 0xdff bytes of data, respecting maximum RAM size 
-    // for applications that is specified for chip8
-    uint bread = (uint) fread(*(mem->ram + 0x200), sizeof(char), 0xdff, filep);
+    // read at most 0xdff bytes of data, respecting the maximum amount of
+    // ram that is available to store applications, according to the chip8
+    // specification
+    uint bread = (uint) fread((mems->ram + 0x200),
+                              sizeof(char),
+                              RAM_SIZE - PROG_RAM_START,
+                              filep);
 
     if(ferror(filep)) {
         fprintf(stderr, "chip8: error reading file");
@@ -262,36 +324,4 @@ uint load_game(char *game_name, MemMaps *mems)
     }
     
     return bread;
-}
-
-// call our opcodes according to the function pointers
-void msbis0(uint16_t opcode)
-{
-    if (opcode)
-    {
-        uint16_t index = offset4(opcode);
-        (*zeroop[index]) (opcode);
-    }
-}
-
-void msbis8(uint16_t opcode)
-{
-    uint16_t index = offset4(opcode);
-    (*eightop[index]) (opcode);
-}
-
-void msbise(uint16_t opcode) 
-{
-    uint16_t index = offset3(opcode);
-    (*e_op[index]) (opcode);
-}
-
-void msbisf(uint16_t opcode)
-{
-    uint16_t index = offset4(opcode);
-    if (index == 0x5) {
-        index = offset3(opcode);
-    }
-
-    (*special[index]) (opcode);
 }

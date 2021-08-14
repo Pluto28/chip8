@@ -2,18 +2,27 @@
  * Graphics functions that don't need opcodes to be executed
  * */
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 #include "graphics.h"
+#include "chip8.h"
 
 
-// the background and foreground colors
 uint8_t sprites[4] = {104, 195, 163, 1};
-uint8_t background[4] = {0, 0, 0, 255};
+
+/*
+ * background colors
+ *
+ * bg[0] = red
+ * bg[1] = blue
+ * bg[2] = green
+ * bg[3] = alpha
+ */
+uint8_t bg[4] = {0, 0, 0, 255};
 
 
 // remap the chip8 keys to conform better to new keyboards
@@ -59,12 +68,21 @@ enum KeyPressMappings
 // *                                 rendering                                  *
 // ******************************************************************************
 
+// this struct store pointers to the SDL2 structs that are used to 
+// draw and read pixels from the screen
+struct WindowDrawData
+{
+
+};
+
+// Store colors to be used when drawing pixels or 
+
 // main sdl structures used by program
-SDL_Window *ScreenWindow;
-SDL_Renderer *ScreenRenderer;
+static SDL_Window *ScreenWindow = NULL;
+static SDL_Renderer *ScreenRenderer = NULL;
 
 
-void init_win(char *game_name, int width, int height)
+void init_win(char *game_name, uint8_t scale_factor)
 {
 
     // initialize sdl
@@ -74,116 +92,107 @@ void init_win(char *game_name, int width, int height)
     } 
     else
     {
-        ScreenWindow = SDL_CreateWindow(*game_name,
+        ScreenWindow = SDL_CreateWindow( game_name,
                                          SDL_WINDOWPOS_CENTERED,
                                          SDL_WINDOWPOS_CENTERED,
-                                         width, height,
-                                         0);
-        if (ScreenWindow == NULL)
-        {
+                                         WINDOW_WIDTH * scale_factor, 
+                                         WINDOW_HEIGHT * scale_factor,
+                                         SDL_WINDOW_SHOWN);
+
+        if (ScreenWindow == NULL) {
             fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
         }
 
-        ScreenRenderer = SDL_CreateRenderer(ScreenWindow, -1, SDL_RENDERER_ACCELERATED);
-        if (ScreenRenderer == NULL)
-        {
-            fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
-        }
+        ScreenRenderer = SDL_CreateRenderer(ScreenWindow,
+                                            -1,
+                                            SDL_RENDERER_ACCELERATED);
+
+        if (ScreenRenderer == NULL) {
+            fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
+    	}
+   
+	
+        SDL_RenderSetScale(ScreenRenderer, scale_factor, scale_factor);
     }
 }
 
 
-uint8_t** magnify(uint16_t h1, uint16_t w1, uint16_t h2, uint16_t w2, uint8_t bitarr[][w1])
-{
-
-    uint y_ratio = (uint)((w1<<16)/w2) + 1;
-    uint x_ratio = (uint)((h1<<16)/h2) + 1;
-
-    // create a dinamically allocated 2d array
-    // the new sizes computed according to the ratio
-
-    uint8_t **magnified = (uint8_t **)malloc(w2 * h2);
-
-    uint16_t actualh; // height being iterated
-    for (actualh = 0; actualh < h2; ++actualh)
-    {
-        magnified[actualh] = (uint8_t*)calloc(w2, sizeof(bitarr[0][0]));
-    }
-
-    // resize the bitarray using nearest neighbor scaling
-    uint16_t y, x, x2, y2;
-    for (y = 0; y < h2; ++y)
-    {
-        for (x = 0; x < w2; ++x)
-        {
-            x2 = ((x * x_ratio)>>16) ;
-            y2 = ((y * y_ratio)>>16) ;
-            magnified[y][x] = bitarr[y2][x2];
-
-        }
-    }
-
-    return magnified;
-
-}
-
-
-
-void update_gfx(uint16_t columns, uint16_t rows, uint8_t gfx[][columns])
-{   
-
-    // magnification ratio
-    uint8_t ratio = 10;
-
-    // height and width of magnified 2d array
-    uint16_t h2 = (columns * ratio);
-    uint16_t w2 = (rows * ratio);
-
-    uint8_t **magnified = magnify(columns, rows, h2, w2 , gfx);
-
-    // iterate a magnified array and render it's contents to the screen
-    uint16_t row, column;
-
-    for (column = 0; column < h2; ++column)
-    {
-        for (row = 0; row < w2; ++row)
-        {
-            if (magnified[column][row])
-            {
-                SDL_SetRenderDrawColor(ScreenRenderer, sprites[0], sprites[1],\
-                sprites[2], sprites[3]);
-            }
-            else
-            {
-                SDL_SetRenderDrawColor(ScreenRenderer, background[0], background[1],\
-                background[2], background[3]);
-            }
-            SDL_RenderDrawPoint(ScreenRenderer, row, column);
-            //printf("%i", magnified[column][row]);
-        }
-        //putchar('\n');
-    }
-    SDL_RenderPresent(ScreenRenderer);
-
-    // free memory stored for magnified
-    for (column = 0; column < h2; ++column)
-    {
-        free(magnified[column]);
-    }
-    free(magnified);
-}
 
 void clean_screen()
 {   
-    SDL_SetRenderDrawColor(ScreenRenderer, 0, 0, 0, 1);
+    SDL_SetRenderDrawColor(ScreenRenderer, 
+                           bg[0], bg[1], bg[2], bg[3]);
     SDL_RenderClear(ScreenRenderer);
-    SDL_RenderPresent(ScreenRenderer);
 }
 
+// TODO: add error checking
+void update_window(MemMaps *mem)
+{
+    
+    // create texture that will hold the pixels to the screen
+    SDL_Texture *ChipTexture = SDL_CreateTexture(ScreenRenderer,
+                                                 SDL_PIXELFORMAT_RGBA32,
+                                                 SDL_TEXTUREACCESS_STREAMING,
+                                                 WINDOW_WIDTH, WINDOW_HEIGHT);
 
-// map our screen memory map to a sdl sourface so we can perform efficient 
-// computations with it and supposedly magnify it without too much bootleneck
-void MapToSurface()
+    if (ChipTexture == NULL) {
+        fprintf(stderr, "Couldn't create texture from renderer: %s",
+                SDL_GetError());
+    }
+
+    //--------------------------------------------------------------------------
+    // get our texture format and map the rgba colors to it
+    uint32_t pixelformat;
+    if (SDL_QueryTexture(ChipTexture, &pixelformat, NULL, NULL, NULL) == -1) {
+        fprintf(stderr, "Couldn't querry texture format: %s", SDL_GetError());
+    }
+
+    SDL_PixelFormat *format = SDL_AllocFormat(pixelformat);
+    if (format == NULL) {
+        fprintf(stderr, "Couldn't allocate format: %s", SDL_GetError());
+    }
+
+    uint32_t spriteRGBA = SDL_MapRGBA(format, 
+                                   sprites[0], sprites[1],
+                                   sprites[2], sprites[3]);
+
+
+    uint32_t bgRGBA = SDL_MapRGBA(format, 
+                                   bg[0], bg[1],
+                                   bg[2], bg[3]);
+
+    //--------------------------------------------------------------------------
+
+    int HeightIndex, WidthIndex;
+    uint32_t SurfaceIndex;       // which pixel to access
+
+    // unlock texture so we can manipulate its pixels
+    uint32_t *pixels;
+    int pitch;
+    SDL_LockTexture(ChipTexture, NULL, (void **) &pixels, &pitch);
+
+    // iterate the entire screen array, updates the ChipTexture with 
+    // the new frame, then unlocks it and effectivates the changes
+    for(HeightIndex = 0; HeightIndex < WINDOW_HEIGHT; ++HeightIndex)
+    {
+        for(WidthIndex = 0; WidthIndex < WINDOW_WIDTH; ++WidthIndex)
+        {
+            // set the texture value to a RGBA pixel, according to the
+            // memory map that stores the memory map of our screen
+            if (mem->screen[HeightIndex][WidthIndex]) {
+                pixels[(WINDOW_WIDTH * HeightIndex) + WidthIndex] = spriteRGBA;
+            } else {
+                pixels[(WINDOW_WIDTH * HeightIndex) + WidthIndex] = bgRGBA;
+            }
+        }
+    }
+    SDL_UnlockTexture(ChipTexture);
+
+    SDL_RenderCopy(ScreenRenderer, ChipTexture, NULL, NULL);
+    SDL_RenderPresent(ScreenRenderer);
+    
+    SDL_DestroyTexture(ChipTexture);
+}
 
 //******************************************************************************
 //*                     key input handling                                     *
@@ -229,6 +238,7 @@ uint8_t set_keys(uint8_t *keys)
     }
 }
 
+// TODO: rewrite
 uint8_t waitkey()
 {
     fprintf(stdout, "\nWaiting for key\n");
@@ -246,19 +256,15 @@ uint8_t waitkey()
             exit( 0 );
         }
 
-        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
-        {
+        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
             key = keymap(event.key.keysym.sym);
 
             // break out of loop if key is in the expected range
-            if (key >= 0 && key <= 15) 
-            {
+            if (key >= 0 && key <= 15) {
                 break;
-                printf("breaking\n");
             }
-        }
-        else 
-        {
+
+        } else {
             continue;
         }
     }
@@ -320,5 +326,6 @@ uint8_t keymap(uint key)
             key = KEYMAP_Z;
             break;
     }
+
     return key;
 }
