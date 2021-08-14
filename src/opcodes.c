@@ -228,7 +228,6 @@ void jump(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
 
     uint16_t addr = opcode & 0x0fff;
-    printf("jumping to: %X\n\n", addr);
 
     // since we add +2 to the cpuData->pc register at the game_loop, 
     // this would jump the instruction at addr before it being executed, so
@@ -328,7 +327,6 @@ void set_dt(uint16_t opcode, cpu *cpuData, MemMaps *mem)
 {
     uint8_t vx = cpuData->regs[offset2(opcode)];
     
-    printf("offset 2 is: %i\n\n", offset2(opcode));
     cpuData->dt = vx;
 }
 
@@ -461,14 +459,7 @@ void draw(uint16_t opcode, cpu *cpuData, MemMaps *mem)
                    cpuData->regs[0xf] = 1;
 
             *screen_pixel ^= pixel;
-            //printf("%i", *screen_pixel);
         }
-        //putchar('\n');
-    }
-
-    if (cpuData->regs[0xf])
-    {
-        printf("collision detected when drawing\n\n");
     }
 
     update_window(mem);
