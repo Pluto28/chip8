@@ -319,7 +319,7 @@ uint load_game(char *game_name, MemMaps *mems)
                               filep);
 
     if(ferror(filep)) {
-        fprintf(stderr, "chip8: error reading file");
+        fprintf(stderr, "chip8: error reading file\n");
         exit(1);
     }
     
