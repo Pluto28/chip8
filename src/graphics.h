@@ -30,7 +30,7 @@ uint8_t waitkey();
 
 // handle events and return the pressed key, key is KEY_NULL(16) if 
 // there are no down keys
-uint8_t set_keys(uint8_t *keys);
+void set_keys(uint8_t *keys);
 
 uint8_t keymap(uint key);
 

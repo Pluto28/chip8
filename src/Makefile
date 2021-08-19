@@ -5,7 +5,7 @@ CC = gcc
 linker_flags = $(shell sdl2-config --libs)
 
 # compiler options
-cc_options = 
+cc_options = -Wall 
 
 cc_options += $(shell sdl2-config --cflags)
 

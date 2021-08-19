@@ -164,7 +164,7 @@ void update_window(MemMaps *mem)
     //--------------------------------------------------------------------------
 
     int HeightIndex, WidthIndex;
-    uint32_t SurfaceIndex;       // which pixel to access
+    //uint32_t SurfaceIndex;       // which pixel to access
 
     // unlock texture so we can manipulate its pixels
     uint32_t *pixels;
@@ -199,7 +199,7 @@ void update_window(MemMaps *mem)
 //******************************************************************************
 
 
-uint8_t set_keys(uint8_t *keys)
+void set_keys(uint8_t *keys)
 {
     SDL_Event event;
 
