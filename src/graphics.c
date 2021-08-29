@@ -323,7 +323,7 @@ uint8_t keymap(uint key)
             key = KEYMAP_C;
             break;
         case SDLK_v:
-            key = KEYMAP_Z;
+            key = 15;
             break;
     }
 
