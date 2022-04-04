@@ -1,7 +1,7 @@
 # chip8
 
 This is a simple chip8 emulator made with c and sdl2, i really enjoyed the project
-and i hope you can use it for something usefull
+and i hope you can use it for something useful
 
 ### Install SDL2
 
